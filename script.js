@@ -12,71 +12,72 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // ======================================================
-// === HOCHKANT-GRÖßENBASIS (Rentier-Run-Logik) ===
+// === HOCHKANT-GRÖßENBASIS (Dynamische Skalierung) ===
 // ======================================================
-// NEUE Referenzbreite für Hochkant-Format (z.B. 9:16)
-const BASE_WIDTH = 450; 
-// Die interne Basis-Höhe ist nun 800px (800 / 450 = ca. 1.777)
-const BASE_RATIO = 800 / 450; 
+// NEUE Referenzbreite für ein etwas breiteres Hochkant-Format
+const BASE_WIDTH = 500; 
+// Basis-Höhe (für das Verhältnis 5:8, also 500:800)
+const BASE_HEIGHT = 800; 
+const BASE_RATIO = BASE_HEIGHT / BASE_WIDTH; 
 
+// ALLE dynamischen Werte müssen jetzt 'let' sein, damit sie in resizeGame() neu berechnet werden können
 let SCALING_FACTOR;
 let GAME_WIDTH;
 let GAME_HEIGHT;
 
-// --- POWER-UP KONFIGURATION (ALLE WERTE SKALIERT) - AUF 'let' UMGESTELLT ---
+// --- POWER-UP KONFIGURATION (JETZT ALLE 'let' FÜR RESIZE) ---
 const POWERUP_SPAWN_SCORE = 1;      
 const POWERUP_SPAWN_INTERVAL = 200;    
 const POWERUP_CHANCE = 0.5;            
 
-// Basis-Werte angepasst an die neue kleinere Breite (450px)
-let MULTIPLIER_WIDTH = 80;    
-let MULTIPLIER_HEIGHT = 60;  
-let LIFEUP_WIDTH = 60;    
-let LIFEUP_HEIGHT = 60;
-let MAGNET_WIDTH = 80;    
-let MAGNET_HEIGHT = 50;
-let FLIGHT_POWERUP_WIDTH = 110;  
-let FLIGHT_POWERUP_HEIGHT = 80;
+let MULTIPLIER_WIDTH_BASE = 80;    
+let MULTIPLIER_HEIGHT_BASE = 60;  
+let LIFEUP_WIDTH_BASE = 60;    
+let LIFEUP_HEIGHT_BASE = 60;
+let MAGNET_WIDTH_BASE = 80;    
+let MAGNET_HEIGHT_BASE = 50;
+let FLIGHT_POWERUP_WIDTH_BASE = 110;  
+let FLIGHT_POWERUP_HEIGHT_BASE = 80;
 
-// === FLUG-KONFIGURATION (AUF 'let' UMGESTELLT) ===
+// === FLUG-KONFIGURATION (JETZT ALLE 'let' FÜR RESIZE) ===
 const FLIGHT_DURATION = 5000;              
 const POST_FLIGHT_INVULN_DURATION = 3000;  
-let FLIGHT_RISE_SPEED = 2.5;             
-let FLIGHT_SINK_SPEED = 2.5;             
+let FLIGHT_RISE_SPEED_BASE = 2.5;             
+let FLIGHT_SINK_SPEED_BASE = 2.5;             
 let FLIGHT_CENTER_Y;
 let FLIGHT_CENTER_X;
 const FLIGHT_SPEED_MULTIPLIER = 2.5;
 const FLIGHT_HORIZONTAL_EASING = 0.1;
-let FLIGHT_IMAGE_WIDTH = 100;  
-let FLIGHT_IMAGE_HEIGHT = 80;  
+let FLIGHT_IMAGE_WIDTH_BASE = 100;  
+let FLIGHT_IMAGE_HEIGHT_BASE = 80;  
 
 // LOGIK DEFINITIONEN
-let MAGNET_RANGE = 500;    
+let MAGNET_RANGE_BASE = 500;    
 const MAGNET_MAX_CHARGES = 3;  
 
-// === MAGNET ANZEIGE KONFIGURATION (AUF 'let' UMGESTELLT) ===
-let MAGNET_ICON_WIDTH = 100; 
-let MAGNET_ICON_HEIGHT = 70; 
-let MAGNET_ICON_PADDING = 20;     
-let MAGNET_TEXT_OFFSET_X = -10;   
-let MAGNET_DISPLAY_Y = 30;         
+// === MAGNET ANZEIGE KONFIGURATION (JETZT ALLE 'let' FÜR RESIZE) ===
+let MAGNET_ICON_WIDTH_BASE = 100; 
+let MAGNET_ICON_HEIGHT_BASE = 70; 
+let MAGNET_ICON_PADDING_BASE = 20;     
+let MAGNET_TEXT_OFFSET_X_BASE = -10;   
+let MAGNET_DISPLAY_Y_BASE = 30;         
 
-// --- KOLLISIONS- & POSITIONSEINSTELLUNGEN (AUF 'let' UMGESTELLT) ---
+// --- KOLLISIONS- & POSITIONSEINSTELLUNGEN (JETZT ALLE 'let' FÜR RESIZE) ---
 const HITBOX_WIDTH_REDUCTION = 0.40;  
 const HITBOX_HEIGHT_TOP_OFFSET = 0.20; 
-let Y_OFFSET = 10; 
-let JUMP_HEIGHT_BOOST = 45; 
+let Y_OFFSET_BASE = 10; 
+let JUMP_HEIGHT_BOOST_BASE = 45; 
 
-let OBSTACLE_WIDTH = 80; 
-let OBSTACLE_HEIGHT = 130; 
-let gameSpeed = 6; // STARTGESCHWINDIGKEIT SKALIERT
+let OBSTACLE_WIDTH_BASE = 80; 
+let OBSTACLE_HEIGHT_BASE = 130; 
+let gameSpeed = 6; // Startgeschwindigkeit (wird in resizeGame() skaliert)
 
-// Sockengrößen
-let SOCK_WIDTH = 700;
-let SOCK_HEIGHT = 480;
-let SOCK_Y_OFFSET = 30;
+// Socken-Basisgrößen
+let SOCK_WIDTH_BASE = 700;
+let SOCK_HEIGHT_BASE = 480;
+let SOCK_Y_OFFSET_BASE = 30;
 
-// === PLAYER OBJEKT (Initialisierung auf 0, Werte werden in resizeGame gesetzt) ===
+// === PLAYER OBJEKT (Werte werden in resizeGame gesetzt) ===
 const player = {
     x: 0, 
     y: 0, 
@@ -110,11 +111,8 @@ let nextObstacleFrame = 0;
 const MIN_GAP = 60;        
 const MAX_GAP = 120;       
 
-// === SOCKE VARIABLEN ===
 let sockSpawned = false; 
 let winObject = null;    
-// =======================
-
 
 let obstacles = [];
 let frame = 0;
@@ -130,65 +128,70 @@ const nextIntro2Btn = document.getElementById('nextIntro2');
 
 
 // ======================================================
-// === HAUPT-SKALIERUNGSFUNKTION (HOCHKANT-KORREKTUR) ===
+// === HAUPT-SKALIERUNGSFUNKTION (VOLL-RESPONSIV) ===
 // ======================================================
 function resizeGame() {
-    // 1. Hole die tatsächliche Größe, die durch das responsive CSS festgelegt wurde
-    const canvasRect = canvas.getBoundingClientRect();
+    // 1. Setze Canvas auf die volle Größe des Browser-Fensters (Rentier-Run Logik)
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 
-    // 2. Definiere die interne Canvas-Auflösung basierend auf der tatsächlichen Größe
-    canvas.width = canvasRect.width;
-    
-    // NEU: Höhe wird proportional zur NEUEN Hochkant-Basis (800 / 450) gesetzt
-    canvas.height = Math.round(canvas.width * BASE_RATIO); 
-
-    // 3. Definiere den Skalierungsfaktor zur Berechnung aller Variablen
-    SCALING_FACTOR = canvas.width / BASE_WIDTH;
     GAME_WIDTH = canvas.width;
     GAME_HEIGHT = canvas.height; 
 
-    // 4. BERECHNUNG ALLER ABHÄNGIGEN GRÖSSEN (Basiswerte * SCALING_FACTOR)
+    // 2. Bestimme den Skalierungsfaktor. 
+    // Wir nutzen die Breite, damit die Elemente proportional zum Hochkant-Spiel bleiben.
+    // Wenn die Höhe viel größer ist, füllen wir nicht die gesamte Höhe mit Spielinhalten aus.
+    // Wir zentrieren das Spiel dann vertikal, wenn das Verhältnis zu "hoch" ist.
+    SCALING_FACTOR = GAME_WIDTH / BASE_WIDTH;
     
-    // Power-Up Größen (Basiswerte werden hier mit SCALING_FACTOR multipliziert)
-    MULTIPLIER_WIDTH *= SCALING_FACTOR;    
-    MULTIPLIER_HEIGHT *= SCALING_FACTOR;  
-    LIFEUP_WIDTH *= SCALING_FACTOR;    
-    LIFEUP_HEIGHT *= SCALING_FACTOR;
-    MAGNET_WIDTH *= SCALING_FACTOR;    
-    MAGNET_HEIGHT *= SCALING_FACTOR;
-    FLIGHT_POWERUP_WIDTH *= SCALING_FACTOR;  
-    FLIGHT_POWERUP_HEIGHT *= SCALING_FACTOR;
+    // Fallback: Wenn das Verhältnis zu breit ist (Querformat), verwenden wir die Höhe zur Skalierung
+    // Dies stellt sicher, dass das Spiel immer sichtbar bleibt
+    if (GAME_HEIGHT / GAME_WIDTH < BASE_RATIO) {
+        SCALING_FACTOR = GAME_HEIGHT / BASE_HEIGHT;
+    }
+
+    // 3. BERECHNUNG ALLER ABHÄNGIGEN GRÖSSEN (Basiswerte * SCALING_FACTOR)
+    
+    // Power-Up Größen
+    let MULTIPLIER_WIDTH = MULTIPLIER_WIDTH_BASE * SCALING_FACTOR;    
+    let MULTIPLIER_HEIGHT = MULTIPLIER_HEIGHT_BASE * SCALINGING_FACTOR;  
+    let LIFEUP_WIDTH = LIFEUP_WIDTH_BASE * SCALING_FACTOR;    
+    let LIFEUP_HEIGHT = LIFEUP_HEIGHT_BASE * SCALING_FACTOR;
+    let MAGNET_WIDTH = MAGNET_WIDTH_BASE * SCALING_FACTOR;    
+    let MAGNET_HEIGHT = MAGNET_HEIGHT_BASE * SCALING_FACTOR;
+    let FLIGHT_POWERUP_WIDTH = FLIGHT_POWERUP_WIDTH_BASE * SCALING_FACTOR;  
+    let FLIGHT_POWERUP_HEIGHT = FLIGHT_POWERUP_HEIGHT_BASE * SCALING_FACTOR;
 
     // Flug-Konfiguration
-    FLIGHT_RISE_SPEED *= SCALING_FACTOR;             
-    FLIGHT_SINK_SPEED *= SCALING_FACTOR;             
+    let FLIGHT_RISE_SPEED = FLIGHT_RISE_SPEED_BASE * SCALING_FACTOR;             
+    let FLIGHT_SINK_SPEED = FLIGHT_SINK_SPEED_BASE * SCALING_FACTOR;             
     FLIGHT_CENTER_Y = GAME_HEIGHT / 2 - (25 * SCALING_FACTOR);
     FLIGHT_CENTER_X = GAME_WIDTH / 2 - (37.5 * SCALING_FACTOR);
-    FLIGHT_IMAGE_WIDTH *= SCALING_FACTOR;  
-    FLIGHT_IMAGE_HEIGHT *= SCALING_FACTOR;  
+    let FLIGHT_IMAGE_WIDTH = FLIGHT_IMAGE_WIDTH_BASE * SCALING_FACTOR;  
+    let FLIGHT_IMAGE_HEIGHT = FLIGHT_IMAGE_HEIGHT_BASE * SCALING_FACTOR;  
 
     // Logik Definitionen
-    MAGNET_RANGE *= SCALING_FACTOR;    
+    let MAGNET_RANGE = MAGNET_RANGE_BASE * SCALING_FACTOR;    
 
     // Magnet Anzeige
-    MAGNET_ICON_WIDTH *= SCALING_FACTOR; 
-    MAGNET_ICON_HEIGHT *= SCALING_FACTOR; 
-    MAGNET_ICON_PADDING *= SCALING_FACTOR;     
-    MAGNET_TEXT_OFFSET_X *= SCALING_FACTOR;   
-    MAGNET_DISPLAY_Y *= SCALING_FACTOR;         
+    let MAGNET_ICON_WIDTH = MAGNET_ICON_WIDTH_BASE * SCALING_FACTOR; 
+    let MAGNET_ICON_HEIGHT = MAGNET_ICON_HEIGHT_BASE * SCALING_FACTOR; 
+    let MAGNET_ICON_PADDING = MAGNET_ICON_PADDING_BASE * SCALING_FACTOR;     
+    let MAGNET_TEXT_OFFSET_X = MAGNET_TEXT_OFFSET_X_BASE * SCALING_FACTOR;   
+    let MAGNET_DISPLAY_Y = MAGNET_DISPLAY_Y_BASE * SCALING_FACTOR;         
 
     // Kollision & Position
-    Y_OFFSET *= SCALING_FACTOR; 
-    JUMP_HEIGHT_BOOST *= SCALING_FACTOR; 
+    let Y_OFFSET = Y_OFFSET_BASE * SCALING_FACTOR; 
+    let JUMP_HEIGHT_BOOST = JUMP_HEIGHT_BOOST_BASE * SCALING_FACTOR; 
 
-    OBSTACLE_WIDTH *= SCALING_FACTOR; 
-    OBSTACLE_HEIGHT *= SCALING_FACTOR; 
+    let OBSTACLE_WIDTH = OBSTACLE_WIDTH_BASE * SCALING_FACTOR; 
+    let OBSTACLE_HEIGHT = OBSTACLE_HEIGHT_BASE * SCALING_FACTOR; 
     gameSpeed = 6 * SCALING_FACTOR; 
 
     // Socken-Variablen
-    SOCK_WIDTH *= SCALING_FACTOR;
-    SOCK_HEIGHT *= SCALING_FACTOR;
-    SOCK_Y_OFFSET *= SCALING_FACTOR;
+    let SOCK_WIDTH = SOCK_WIDTH_BASE * SCALING_FACTOR;
+    let SOCK_HEIGHT = SOCK_HEIGHT_BASE * SCALING_FACTOR;
+    let SOCK_Y_OFFSET = SOCK_Y_OFFSET_BASE * SCALING_FACTOR;
 
     // Player-Werte
     player.x = 50 * SCALING_FACTOR;
@@ -199,6 +202,7 @@ function resizeGame() {
     
     // Setze Spieler bei Rotation auf den Boden zurück (nur wenn das Spiel läuft)
     if (gameRunning) {
+        // Spieler und Boden werden relativ zur gesamten GAME_HEIGHT positioniert
         player.y = GAME_HEIGHT - player.height;
     }
 }
@@ -210,7 +214,8 @@ window.addEventListener('resize', resizeGame);
 
 
 // ======================================================
-// === BILDER LADEN (Auszug, um das Skript kurz zu halten) ===
+// === BILDER LADEN (Auszug) ===
+// ... (Dieser Teil bleibt gleich) ...
 // ======================================================
 const playerStandImg = new Image();
 playerStandImg.src = 'player_stand.png'; 
@@ -286,6 +291,7 @@ Promise.all([
     new Promise(resolve => arrowRightImg.onload = resolve) 
 ]).then(() => {
     // Die player.y Position wird beim Start auf den korrekten, skalierten Wert gesetzt.
+    resizeGame(); // Erneuter Resize, um sicherzustellen, dass SCALING_FACTOR gesetzt ist
     player.y = GAME_HEIGHT - player.height;
     
     nextObstacleFrame = Math.floor(Math.random() * (MAX_GAP - MIN_GAP)) + MIN_GAP;
@@ -318,13 +324,10 @@ document.addEventListener('keydown', (e) => {
 canvas.addEventListener('mousedown', handleInput);
 canvas.addEventListener('touchstart', handleInput); 
 
-// ==========================================================
-// === KORREKTUR: EVENT BUBBLING STOPPEN FÜR PFEILE ===
-// ==========================================================
-
+// KORREKTUR: EVENT BUBBLING STOPPEN FÜR PFEILE
 if (nextIntro1Btn) {
     const goToIntro2 = (e) => {
-        e.stopPropagation(); // Wichtig: Verhindert, dass der Klick das Spiel startet
+        e.stopPropagation(); 
         introScreen1.classList.add('hidden');
         introScreen2.classList.remove('hidden');
     };
@@ -333,9 +336,9 @@ if (nextIntro1Btn) {
 }
 if (nextIntro2Btn) {
     const goToStartScreen = (e) => {
-        e.stopPropagation(); // Wichtig: Verhindert, dass der Klick das Spiel startet
+        e.stopPropagation(); 
         introScreen2.classList.add('hidden');
-        startScreen.classList.remove('hidden'); // Zeigt den Startbildschirm an
+        startScreen.classList.remove('hidden'); 
     };
     nextIntro2Btn.addEventListener('click', goToStartScreen);
     nextIntro2Btn.addEventListener('touchstart', goToStartScreen); 
@@ -343,7 +346,7 @@ if (nextIntro2Btn) {
 // Klick auf Startbildschirm, um das Spiel zu starten
 if (startScreen) {
     startScreen.addEventListener('click', startGame);
-    startScreen.addEventListener('touchstart', startGame); // Für Touch-Geräte
+    startScreen.addEventListener('touchstart', startGame); 
     
     document.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && !gameRunning && !startScreen.classList.contains('hidden')) {
@@ -366,7 +369,7 @@ function endGame(isWin) {
     const restartBtn = document.getElementById('restartBtn');    
     
     if (!endTitleElement || !endMessageElement || !sockImageElement || !surpriseBtn || !restartBtn) {
-        console.error("FATALER FEHLER: Endscreen-Elemente fehlen im HTML. Bitte prüfe die IDs: gameOverTitle, gameOverMessage, winSockImage, surpriseBtn, restartBtn!");
+        console.error("FATALER FEHLER: Endscreen-Elemente fehlen im HTML. Bitte prüfe die IDs!");
         alert("SPIEL ENDE - HTML-Elemente für den Endscreen fehlen oder sind falsch benannt.");
         gameOverScreen.classList.remove('hidden');
         return; 
@@ -421,7 +424,7 @@ function startGame() {
     scoreMultiplier = 1; 
     lives = 0; 
     
-    // Die Geschwindigkeit muss neu skaliert werden, wenn resizeGame() die Skalierung ändert
+    // Geschwindigkeit und Positionen müssen neu auf SKALIERTEN Werten basieren
     gameSpeed = 6 * SCALING_FACTOR; 
     speedIncreasePoint = 100; 
     powerUp = null; 
@@ -437,13 +440,12 @@ function startGame() {
     gameWon = false; 
     gameEndScore = 0;
     
-    // Socken-Variablen zurücksetzen
     winObject = null;
     sockSpawned = false; 
     
     nextObstacleFrame = Math.floor(Math.random() * (MAX_GAP - MIN_GAP)) + MIN_GAP; 
     
-    // Player-Position auf skalierten Hochkant-Werten zurücksetzen
+    // Player-Position auf skalierten Werten zurücksetzen
     player.x = 50 * SCALING_FACTOR;
     player.y = GAME_HEIGHT - player.height;
     
@@ -466,7 +468,6 @@ function animate() {
     // ======================================
     
     if (score >= speedIncreasePoint) {
-        // Geschwindigkeitserhöhung muss skaliert werden
         gameSpeed += 0.5 * SCALING_FACTOR;
         speedIncreasePoint += 100; 
     }
@@ -477,13 +478,12 @@ function animate() {
         score = WIN_SCORE;
     }
     
-    // FLUG- UND PHYSIK-LOGIK
+    // FLUG- UND PHYSIK-LOGIK (Unverändert, verwendet SCALING_FACTOR)
     if (!isFlying && !isSinking) {
         player.dy += player.gravity;
         player.y += player.dy;
     }
     
-    // X-Position für Hochkant auf der linken Seite fixieren
     if (!isFlying && !isSinking) {
         player.x = 50 * SCALING_FACTOR; 
     }
@@ -498,7 +498,7 @@ function animate() {
         const elapsed = performance.now() - flightStartTime;
         
         if (player.y > FLIGHT_CENTER_Y) { 
-            player.y -= FLIGHT_RISE_SPEED;
+            player.y -= FLIGHT_RISE_SPEED_BASE * SCALING_FACTOR; // Verwende BASE-Werte und skaliere
             if (player.y < FLIGHT_CENTER_Y) { 
                 player.y = FLIGHT_CENTER_Y;
             }
@@ -507,7 +507,7 @@ function animate() {
         }
         
         if (player.x < FLIGHT_CENTER_X) {
-            player.x += FLIGHT_RISE_SPEED;
+            player.x += FLIGHT_RISE_SPEED_BASE * SCALING_FACTOR; // Verwende BASE-Werte und skaliere
             if (player.x > FLIGHT_CENTER_X) {
                 player.x = FLIGHT_CENTER_X;
             }
@@ -524,7 +524,7 @@ function animate() {
         player.dy = 0; 
     } 
     else if (isSinking) {
-        player.y += FLIGHT_SINK_SPEED; 
+        player.y += FLIGHT_SINK_SPEED_BASE * SCALING_FACTOR; // Verwende BASE-Werte und skaliere
         
         const targetX = 50 * SCALING_FACTOR; 
         const easingFactor = FLIGHT_HORIZONTAL_EASING;
@@ -561,14 +561,16 @@ function animate() {
 
     // SPIELER ZEICHNEN LOGIK
     let imageToDraw;
+    // Hier verwenden wir direkt die skalierten Werte, die in resizeGame() 
+    // in die player-Objekte geschrieben wurden (player.width/height)
     let drawWidth = player.width;    
     let drawHeight = player.height;  
     let drawY = player.y;            
 
     if (isFlying || isSinking) { 
         imageToDraw = playerFlightImg;
-        drawWidth = FLIGHT_IMAGE_WIDTH; 
-        drawHeight = FLIGHT_IMAGE_HEIGHT;
+        drawWidth = FLIGHT_IMAGE_WIDTH_BASE * SCALING_FACTOR; // Hier wieder Basiswerte nutzen
+        drawHeight = FLIGHT_IMAGE_HEIGHT_BASE * SCALING_FACTOR;
         drawY = player.y - (5 * SCALING_FACTOR); 
     } 
     else if (player.grounded) { 
@@ -577,8 +579,8 @@ function animate() {
     else { 
         imageToDraw = playerJumpImg; 
         
-        drawHeight = player.height + JUMP_HEIGHT_BOOST; 
-        drawY = player.y - JUMP_HEIGHT_BOOST; 
+        drawHeight = player.height + JUMP_HEIGHT_BOOST_BASE * SCALING_FACTOR; 
+        drawY = player.y - JUMP_HEIGHT_BOOST_BASE * SCALING_FACTOR; 
     }
     
     ctx.drawImage(
@@ -594,54 +596,37 @@ function animate() {
     // SPWANING & MAGNET LOGIK
     frame++;
 
-    // === POWER-UP SPAWN LOGIK (Stoppt bei WIN_SCORE - 1) ===
+    // === POWER-UP SPAWN LOGIK ===
     if (score < WIN_SCORE - 1 && powerUp === null && frame >= POWERUP_SPAWN_SCORE && frame % POWERUP_SPAWN_INTERVAL === 0) {
         if (Math.random() < POWERUP_CHANCE) {
-            let type, width, height;
+            let type;
+            let width_base, height_base;
             
             let randomType = Math.floor(Math.random() * 4); 
 
             if (randomType === 0) {
-                type = 'MULTIPLIER';
+                type = 'MULTIPLIER'; width_base = MULTIPLIER_WIDTH_BASE; height_base = MULTIPLIER_HEIGHT_BASE;
             } else if (randomType === 1) {
-                type = 'MAGNET';
+                type = 'MAGNET'; width_base = MAGNET_WIDTH_BASE; height_base = MAGNET_HEIGHT_BASE;
             } else if (randomType === 2) { 
-                type = 'LIFE';
+                type = 'LIFE'; width_base = LIFEUP_WIDTH_BASE; height_base = LIFEUP_HEIGHT_BASE;
             } else { 
-                type = 'FLIGHT'; 
+                type = 'FLIGHT'; width_base = FLIGHT_POWERUP_WIDTH_BASE; height_base = FLIGHT_POWERUP_HEIGHT_BASE;
             }
             
-            // Vermeide doppelte Power-Ups
-            if (type === 'MAGNET' && activePowerUp === 'MAGNET') {
-                type = 'MULTIPLIER';
-            }
-            if (type === 'LIFE' && lives === 1) {
-                type = 'MULTIPLIER';
+            if ((type === 'MAGNET' && activePowerUp === 'MAGNET') || (type === 'LIFE' && lives === 1)) {
+                type = 'MULTIPLIER'; width_base = MULTIPLIER_WIDTH_BASE; height_base = MULTIPLIER_HEIGHT_BASE;
             }
 
-            // Basiswerte vor Multiplikation nutzen
-            let baseWidth = 0;
-            let baseHeight = 0;
-            if (type === 'MULTIPLIER') {
-                baseWidth = 80; baseHeight = 60;
-            } else if (type === 'MAGNET') {
-                baseWidth = 80; baseHeight = 50;
-            } else if (type === 'LIFE') {
-                baseWidth = 60; baseHeight = 60;
-            } else { 
-                baseWidth = 110; baseHeight = 80; 
-            }
-
-            width = baseWidth * SCALING_FACTOR;
-            height = baseHeight * SCALING_FACTOR;
+            // Power-Up Y-Position: Hängt von der Größe des Hindernisses ab
+            const powerUpY_BASE = BASE_HEIGHT - OBSTACLE_HEIGHT_BASE - 50; // Etwas oberhalb des Hindernis-Boden-Bereichs
             
-            // Y-Position des Power-Ups skaliert (Basis-Werte 130 + 20)
-            const powerUpY = GAME_HEIGHT - (130 * SCALING_FACTOR) - (Math.random() * 20 * SCALING_FACTOR) - height; 
             powerUp = {
                 x: canvas.width,
-                y: powerUpY,
-                width: width,    
-                height: height,
+                // Y-Position des Power-Ups skaliert
+                y: powerUpY_BASE * SCALING_FACTOR - (height_base * SCALING_FACTOR),
+                width: width_base * SCALING_FACTOR,    
+                height: height_base * SCALING_FACTOR,
                 type: type
             };
         }
@@ -649,18 +634,17 @@ function animate() {
     
     // Power-Up Bewegung und Zeichnen & Kollision
     if (powerUp) {
-        
+        // ... (Logik bleibt gleich) ...
         const isMagnetActive = activePowerUp === 'MAGNET' && magnetCharges > 0; 
         
         if (isMagnetActive) { 
-            
             const dx = (powerUp.x + powerUp.width / 2) - (player.x + player.width / 2);
             const dy = (powerUp.y + powerUp.height / 2) - (player.y + player.height / 2);
             const distance = Math.sqrt(dx * dx + dy * dy);
             
             const magnetPullSpeed = currentSpeed * 4; 
 
-            if (distance < MAGNET_RANGE) {
+            if (distance < MAGNET_RANGE_BASE * SCALING_FACTOR) {
                 powerUp.x -= (dx / distance) * magnetPullSpeed; 
                 powerUp.y -= (dy / distance) * magnetPullSpeed;
             }
@@ -698,7 +682,7 @@ function animate() {
         }
     }
 
-    // === HINDERNIS-LOGIK (Stoppt bei WIN_SCORE - 1) ===
+    // === HINDERNIS-LOGIK (Baum-Position Korrektur!) ===
     
     const gapScaling = isFlying ? FLIGHT_SPEED_MULTIPLIER : 1; 
     
@@ -706,12 +690,17 @@ function animate() {
     const scaledMaxGap = Math.floor(MAX_GAP / gapScaling);
     
     if (score < WIN_SCORE - 1 && frame >= nextObstacleFrame) { 
+        
+        const currentObstacleWidth = OBSTACLE_WIDTH_BASE * SCALING_FACTOR;
+        const currentObstacleHeight = OBSTACLE_HEIGHT_BASE * SCALING_FACTOR;
+
         obstacles.push({
             x: canvas.width,
-            // Y-Position des Hindernisses skaliert (Basis-Wert 130 + 10)
-            y: (GAME_HEIGHT - (130 * SCALING_FACTOR)) + (10 * SCALING_FACTOR), 
-            width: OBSTACLE_WIDTH,
-            height: OBSTACLE_HEIGHT
+            // NEU: Y-Position des Hindernisses ist der Boden (GAME_HEIGHT) minus der Höhe des Bildes.
+            // Das verhindert das "Schweben" der Bäume.
+            y: GAME_HEIGHT - currentObstacleHeight, 
+            width: currentObstacleWidth,
+            height: currentObstacleHeight
         });
         
         nextObstacleFrame = frame + Math.floor(Math.random() * (scaledMaxGap - scaledMinGap + 1)) + scaledMinGap;
@@ -765,12 +754,15 @@ function animate() {
     if (score >= WIN_SCORE && !sockSpawned && winObject === null) {
         sockSpawned = true; 
         
+        const currentSockWidth = SOCK_WIDTH_BASE * SCALING_FACTOR;
+        const currentSockHeight = SOCK_HEIGHT_BASE * SCALING_FACTOR;
+
         winObject = {
             x: canvas.width,
-            // Y-Position der Socke skaliert
-            y: GAME_HEIGHT - SOCK_HEIGHT - SOCK_Y_OFFSET, 
-            width: SOCK_WIDTH,
-            height: SOCK_HEIGHT,
+            // NEU: Y-Position der Socke ist der Boden (GAME_HEIGHT) minus der Höhe des Bildes.
+            y: GAME_HEIGHT - currentSockHeight - SOCK_Y_OFFSET_BASE * SCALING_FACTOR, 
+            width: currentSockWidth,
+            height: currentSockHeight,
         };
     }
     
@@ -806,12 +798,10 @@ function animate() {
     if (scoreMultiplier > 1) {
         scoreText += ' (x' + scoreMultiplier + ')';
     }
-    // X/Y-Position skaliert
     ctx.fillText(scoreText, 10 * SCALING_FACTOR, 30 * SCALING_FACTOR);
     
     ctx.shadowBlur = 0; 
     if (lives > 0) { 
-        // Herz-Größe und Position skaliert
         const heartSize = 60 * SCALING_FACTOR; 
         ctx.drawImage(lifeImg, 10 * SCALING_FACTOR, 50 * SCALING_FACTOR, heartSize, heartSize); 
     }
@@ -820,24 +810,28 @@ function animate() {
         
         const ZAHL_Y_KORREKTUR = 15 * SCALING_FACTOR; 
         
-        const iconX = canvas.width - MAGNET_ICON_WIDTH - MAGNET_ICON_PADDING; 
-        const iconY = MAGNET_DISPLAY_Y - (MAGNET_ICON_HEIGHT / 2); 
+        const currentIconWidth = MAGNET_ICON_WIDTH_BASE * SCALING_FACTOR;
+        const currentIconHeight = MAGNET_ICON_HEIGHT_BASE * SCALING_FACTOR;
+        const currentIconPadding = MAGNET_ICON_PADDING_BASE * SCALING_FACTOR;
+        const currentTextOffsetX = MAGNET_TEXT_OFFSET_X_BASE * SCALING_FACTOR;
+        const currentDisplayY = MAGNET_DISPLAY_Y_BASE * SCALING_FACTOR;
         
-        ctx.drawImage(magnetImg, iconX, iconY, MAGNET_ICON_WIDTH, MAGNET_ICON_HEIGHT); 
+        const iconX = canvas.width - currentIconWidth - currentIconPadding; 
+        const iconY = currentDisplayY - (currentIconHeight / 2); 
+        
+        ctx.drawImage(magnetImg, iconX, iconY, currentIconWidth, currentIconHeight); 
 
-        // Textgröße skaliert
         ctx.font = `${Math.round(40 * SCALING_FACTOR)}px Arial, sans-serif`; 
         ctx.shadowBlur = 12 * SCALING_FACTOR; 
         ctx.shadowColor = 'white'; 
         
-        const textX = iconX + MAGNET_ICON_WIDTH + MAGNET_TEXT_OFFSET_X;
+        const textX = iconX + currentIconWidth + currentTextOffsetX;
         ctx.fillStyle = '#FFD700'; 
         ctx.textAlign = 'left'; 
-        const textY = MAGNET_DISPLAY_Y + ZAHL_Y_KORREKTUR;
+        const textY = currentDisplayY + ZAHL_Y_KORREKTUR;
         
         ctx.fillText(magnetCharges, textX, textY);
         
-        // Schriftgröße für den Rest zurücksetzen (skaliert)
         ctx.font = `${Math.round(24 * SCALING_FACTOR)}px Arial, sans-serif`; 
     }
     
