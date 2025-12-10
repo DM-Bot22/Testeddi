@@ -27,17 +27,17 @@
 
         #gameCanvas {
             border: 5px solid #333;
-            /* Basis-Größe für PC-Optimierung */
-            width: 800px;
-            height: 457px; 
+            /* WICHTIG: Die alten festen Breiten/Höhen MÜSSEN FÜR RESPONSIVENESS WEG! */
             
             display: block;
             background-color: #555;
 
-            /* NEU: ZENTRIERUNG & RESPONSIVENESS */
-            max-width: 95vw; /* Darf maximal 95% der Viewport-Breite einnehmen */
-            max-height: 95vh; /* Darf maximal 95% der Viewport-Höhe einnehmen */
+            /* NEU: ZENTRIERUNG & RESPONSIVENESS (Maximiert die Fläche) */
+            max-width: 95vw; /* Maximale Viewport-Breite */
+            max-height: 95vh; /* Maximale Viewport-Höhe */
+            width: auto; 
             height: auto; 
+            aspect-ratio: 1024 / 585; /* Behält das korrekte Seitenverhältnis bei */
         }
 
         /* Allgemeine Overlay-Stile */
@@ -209,19 +209,10 @@
         }
 
         /* ================================================= */
-        /* === NEUE MEDIA QUERY FÜR MOBILGERÄTE (MAX 850PX) === */
+        /* === MEDIA QUERY FÜR MOBILGERÄTE (Zur Skalierung von Text/Buttons) === */
         /* ================================================= */
 
         @media (max-width: 850px) {
-            #gameCanvas {
-                /* Auf Mobilgeräten wird die Canvas-Breite auf die maximale 
-                   Bildschirmbreite (minus Ränder) gesetzt.
-                */
-                width: 95vw; 
-                height: auto; 
-                /* Die Höhe wird durch das JS-Skript proportional gesetzt */
-            }
-            
             /* Overlays sollten auf kleinen Geräten besser skalieren */
             .overlay, .pergament-overlay {
                 padding: 15px 25px;
