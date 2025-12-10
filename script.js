@@ -12,8 +12,6 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // === NEUE DYNAMISCHE GRÖßENBERECHNUNG (MOBIL-OPTIMIERUNG) ===
-// Diese Variablen werden mit 'let' deklariert, damit sie in resizeGame() 
-// bei einer Größenänderung neu berechnet werden können.
 const BASE_WIDTH = 800; // Referenzbreite (PC-Basis): 800px
 
 let SCALING_FACTOR;
@@ -83,6 +81,47 @@ const player = {
     gravity: 0, 
     grounded: false
 };
+
+// --- ZUSTANDSVARIABLEN ---
+let gameRunning = false;
+let score = 0;
+let scoreMultiplier = 1; 
+let powerUp = null; 
+let activePowerUp = null; 
+let lives = 0; 
+let magnetCharges = 0; 
+
+let isFlying = false;        
+let isSinking = false;       
+let isInvulnerable = false;  
+let flightStartTime = 0;     
+let invulnStartTime = 0;     
+
+let gameWon = false; 
+let gameEndScore = 0; 
+
+let nextObstacleFrame = 0; 
+const MIN_GAP = 60;        
+const MAX_GAP = 120;       
+
+// === SOCKE VARIABLEN ===
+let sockSpawned = false; 
+let winObject = null;    
+// =======================
+
+
+let obstacles = [];
+let frame = 0;
+let speedIncreasePoint = 100; 
+
+// Elemente holen
+const startScreen = document.getElementById('startScreen');
+const gameOverScreen = document.getElementById('gameOverScreen');
+const introScreen1 = document.getElementById('introScreen1');
+const introScreen2 = document.getElementById('introScreen2');
+const nextIntro1Btn = document.getElementById('nextIntro1');
+const nextIntro2Btn = document.getElementById('nextIntro2');
+
 
 // ======================================================
 // === HAUPT-SKALIERUNGSFUNKTION (RENTIER RUN LOGIK) ===
@@ -162,50 +201,8 @@ resizeGame();
 window.addEventListener('resize', resizeGame);
 
 
-// --- ZUSTANDSVARIABLEN ---
-let gameRunning = false;
-let score = 0;
-let scoreMultiplier = 1; 
-let powerUp = null; 
-let activePowerUp = null; 
-let lives = 0; 
-let magnetCharges = 0; 
-
-let isFlying = false;        
-let isSinking = false;       
-let isInvulnerable = false;  
-let flightStartTime = 0;     
-let invulnStartTime = 0;     
-
-let gameWon = false; 
-let gameEndScore = 0; 
-
-let nextObstacleFrame = 0; 
-const MIN_GAP = 60;        
-const MAX_GAP = 120;       
-
-// === SOCKE VARIABLEN ===
-let sockSpawned = false; 
-let winObject = null;    
-// =======================
-
-
-let obstacles = [];
-let frame = 0;
-let speedIncreasePoint = 100; 
-
-// Elemente holen
-const startScreen = document.getElementById('startScreen');
-const gameOverScreen = document.getElementById('gameOverScreen');
-// NEU: Intro-Bildschirme
-const introScreen1 = document.getElementById('introScreen1');
-const introScreen2 = document.getElementById('introScreen2');
-const nextIntro1Btn = document.getElementById('nextIntro1');
-const nextIntro2Btn = document.getElementById('nextIntro2');
-
-
 // ======================================================
-// === BILDER LADEN ===
+// === BILDER LADEN (Auszug, um das Skript kurz zu halten) ===
 // ======================================================
 const playerStandImg = new Image();
 playerStandImg.src = 'player_stand.png'; 
@@ -282,7 +279,6 @@ Promise.all([
     new Promise(resolve => arrowRightImg.onload = resolve) 
 ]).then(() => {
     // Die player.y Position wird beim Start auf den korrekten, skalierten Wert gesetzt.
-    // NEU: Wurde bereits in resizeGame() gesetzt, aber hier zur Sicherheit:
     player.y = GAME_HEIGHT - player.height;
     
     nextObstacleFrame = Math.floor(Math.random() * (MAX_GAP - MIN_GAP)) + MIN_GAP;
@@ -311,21 +307,36 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// NEU: Touch-Eingabe (handleInput wurde angepasst)
+// NEU: Touch-Eingabe auf Canvas
 canvas.addEventListener('mousedown', handleInput);
 canvas.addEventListener('touchstart', handleInput); 
 
-// NEU: Event-Listener für die Intro-Buttons (Korrektur: StopPropagation)
+// ==========================================================
+// === WICHTIGE KORREKTUR: EVENT BUBBLING STOPPEN FÜR PFEILE ===
+// ==========================================================
+
 if (nextIntro1Btn) {
     nextIntro1Btn.addEventListener('click', (e) => {
-        e.stopPropagation(); // Verhindert, dass der Klick auf das Canvas durchgeht
+        e.stopPropagation(); // Wichtig: Verhindert, dass der Klick das Spiel startet
+        introScreen1.classList.add('hidden');
+        introScreen2.classList.remove('hidden');
+    });
+    // Füge Touch-Listener hinzu, um es auf dem Smartphone zu garantieren
+    nextIntro1Btn.addEventListener('touchstart', (e) => {
+        e.stopPropagation(); 
         introScreen1.classList.add('hidden');
         introScreen2.classList.remove('hidden');
     });
 }
 if (nextIntro2Btn) {
     nextIntro2Btn.addEventListener('click', (e) => {
-        e.stopPropagation(); // Verhindert, dass der Klick auf das Canvas durchgeht
+        e.stopPropagation(); // Wichtig: Verhindert, dass der Klick das Spiel startet
+        introScreen2.classList.add('hidden');
+        startScreen.classList.remove('hidden'); // Zeigt den Startbildschirm an
+    });
+    // Füge Touch-Listener hinzu, um es auf dem Smartphone zu garantieren
+    nextIntro2Btn.addEventListener('touchstart', (e) => {
+        e.stopPropagation(); 
         introScreen2.classList.add('hidden');
         startScreen.classList.remove('hidden'); // Zeigt den Startbildschirm an
     });
@@ -333,7 +344,8 @@ if (nextIntro2Btn) {
 // Klick auf Startbildschirm, um das Spiel zu starten
 if (startScreen) {
     startScreen.addEventListener('click', startGame);
-    // NEU: Zusätzlicher Event-Listener für Touch/Klick im Startbildschirm
+    startScreen.addEventListener('touchstart', startGame); // NEU: Für Touch-Geräte
+    
     document.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && !gameRunning && !startScreen.classList.contains('hidden')) {
             startGame();
@@ -413,7 +425,7 @@ function startGame() {
     frame = 0;
     scoreMultiplier = 1; 
     lives = 0; 
-    // ACHTUNG: gameSpeed, player.y, player.x werden hier auf die aktuellen, skalierten Werte gesetzt.
+    
     gameSpeed = 6 * SCALING_FACTOR; 
     speedIncreasePoint = 100; 
     powerUp = null; 
