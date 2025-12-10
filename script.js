@@ -11,16 +11,16 @@ const GAME_START_TIME = Date.now();
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// === NEUE DYNAMISCHE GRÖßENBERECHNUNG (MOBIL-OPTIMIERUNG) ===
-// 1. Hole die tatsächliche Größe, die durch das responsive CSS festgelegt wurde
-// Wichtig: Wir müssen warten, bis das DOM gerendert ist, damit getBoundingClientRect() die korrekte Größe liefert.
+// === NEUE DYNAMISCHE GRÖßENBERECHNUNG (VOLLBILD-OPTIMIERUNG) ===
+// 1. Hole die tatsächliche Größe, die durch das Fullscreen-CSS festgelegt wurde
 const canvasRect = canvas.getBoundingClientRect();
 
 // 2. Definiere die interne Canvas-Auflösung basierend auf der tatsächlichen Größe
 canvas.width = canvasRect.width;
 
-// Die Höhe wird proportional zur Breite (1024x585 Referenz) gesetzt:
-canvas.height = Math.round(canvas.width * (585 / 1024)); 
+// KRITISCHE ANPASSUNG: Die Höhe wird auf die tatsächliche angezeigte Höhe gesetzt.
+// ACHTUNG: Dies führt auf einigen Geräten zur Verzerrung!
+canvas.height = canvasRect.height; 
 
 // 3. Definiere den Skalierungsfaktor zur Berechnung aller Variablen
 // Referenzbreite (PC-Basis): 800px
@@ -50,7 +50,8 @@ const FLIGHT_DURATION = 5000;
 const POST_FLIGHT_INVULN_DURATION = 3000;  
 const FLIGHT_RISE_SPEED = 2.5 * SCALING_FACTOR;             
 const FLIGHT_SINK_SPEED = 2.5 * SCALING_FACTOR;             
-const FLIGHT_CENTER_Y = GAME_HEIGHT / 2 - (25 * SCALING_FACTOR);
+// Y-Position muss sich zur Mitte der NEUEN Höhe verschieben
+const FLIGHT_CENTER_Y = GAME_HEIGHT / 2 - (25 * SCALING_FACTOR); 
 const FLIGHT_CENTER_X = GAME_WIDTH / 2 - (37.5 * SCALING_FACTOR);
 const FLIGHT_SPEED_MULTIPLIER = 2.5;
 const FLIGHT_HORIZONTAL_EASING = 0.1;
@@ -104,7 +105,7 @@ let winObject = null;
 
 const player = {
     x: 50 * SCALING_FACTOR, // Start-X-Position skaliert
-    y: GAME_HEIGHT - (50 * SCALING_FACTOR), // Y-Position skaliert
+    y: GAME_HEIGHT - (50 * SCALING_FACTOR), // Y-Position muss sich an neue GAME_HEIGHT anpassen
     width: 75 * SCALING_FACTOR, // Breite skaliert
     height: 50 * SCALING_FACTOR, // Höhe skaliert
     dy: 0,
@@ -232,21 +233,21 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// NEU: Touch-Eingabe
+// Touch-Eingabe (Bereits in der vorherigen Version hinzugefügt)
 canvas.addEventListener('mousedown', handleInput);
 canvas.addEventListener('touchstart', handleInput); 
 
-// NEU: Event-Listener für die Intro-Buttons (Korrektur: StopPropagation)
+// Event-Listener für die Intro-Buttons
 if (nextIntro1Btn) {
     nextIntro1Btn.addEventListener('click', (e) => {
-        e.stopPropagation(); // Verhindert, dass der Klick auf das Canvas durchgeht
+        e.stopPropagation(); 
         introScreen1.classList.add('hidden');
         introScreen2.classList.remove('hidden');
     });
 }
 if (nextIntro2Btn) {
     nextIntro2Btn.addEventListener('click', (e) => {
-        e.stopPropagation(); // Verhindert, dass der Klick auf das Canvas durchgeht
+        e.stopPropagation(); 
         introScreen2.classList.add('hidden');
         startScreen.classList.remove('hidden'); // Zeigt den Startbildschirm an
     });
@@ -254,7 +255,7 @@ if (nextIntro2Btn) {
 // Klick auf Startbildschirm, um das Spiel zu starten
 if (startScreen) {
     startScreen.addEventListener('click', startGame);
-    // NEU: Zusätzlicher Event-Listener für Touch/Klick im Startbildschirm
+    // Zusätzlicher Event-Listener für Tastatur im Startbildschirm
     document.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && !gameRunning && !startScreen.classList.contains('hidden')) {
             startGame();
@@ -264,8 +265,6 @@ if (startScreen) {
 
 
 // === END-LOGIK ===
-// Logik angepasst, um Buttons je nach Win/Loss anzuzeigen und neuen Text zu nutzen
-
 function endGame(isWin) {
     gameRunning = false;
     gameWon = isWin;
@@ -278,7 +277,7 @@ function endGame(isWin) {
     const restartBtn = document.getElementById('restartBtn');    
     
     if (!endTitleElement || !endMessageElement || !sockImageElement || !surpriseBtn || !restartBtn) {
-        console.error("FATALER FEHLER: Endscreen-Elemente fehlen im HTML. Bitte prüfe die IDs: gameOverTitle, gameOverMessage, winSockImage, surpriseBtn, restartBtn!");
+        console.error("FATALER FEHLER: Endscreen-Elemente fehlen im HTML. Bitte prüfe die IDs!");
         alert("SPIEL ENDE - HTML-Elemente für den Endscreen fehlen oder sind falsch benannt.");
         gameOverScreen.classList.remove('hidden');
         return; 
@@ -301,7 +300,6 @@ function endGame(isWin) {
     } 
     else {
         endTitleElement.textContent = 'Game Over';
-        // HIER: Der angepasste Verlierer-Text, den du zuletzt wollten
         endMessageElement.innerHTML = `Leider hast du die Socke für Eddi nicht bekommen.`; 
         sockImageElement.classList.add('hidden'); 
         
@@ -331,8 +329,8 @@ function startGame() {
     frame = 0;
     scoreMultiplier = 1; 
     lives = 0; 
-    // ACHTUNG: gameSpeed, player.y, player.x müssen hier erneut auf skalierte Werte gesetzt werden, 
-    // falls sie sich im Spiel verändert haben.
+    
+    // Die Basis-Variablen müssen beim Start auf die skalierten Werte zurückgesetzt werden
     gameSpeed = 6 * SCALING_FACTOR; 
     speedIncreasePoint = 100; 
     powerUp = null; 
@@ -353,12 +351,14 @@ function startGame() {
     sockSpawned = false; 
     
     nextObstacleFrame = Math.floor(Math.random() * (MAX_GAP - MIN_GAP)) + MIN_GAP; 
+    
+    // Y-Position des Spielers auf den Boden der NEUEN Höhe setzen
     player.y = GAME_HEIGHT - player.height;
     player.x = 50 * SCALING_FACTOR; 
-    startScreen.classList.add('hidden'); // Stellt sicher, dass der Startbildschirm ausgeblendet wird
+    
+    startScreen.classList.add('hidden'); 
     gameOverScreen.classList.add('hidden');
     
-    // Blendet Intro-Bildschirme aus, falls noch sichtbar
     introScreen1.classList.add('hidden');
     introScreen2.classList.add('hidden');
 
@@ -398,6 +398,7 @@ function animate() {
         player.x = 50 * SCALING_FACTOR; // Zurücksetzen auf skalierten Wert
     }
 
+    // ACHTUNG: Bodenkontakt wird anhand der neuen GAME_HEIGHT geprüft
     if (player.y + player.height > GAME_HEIGHT) {
         player.y = GAME_HEIGHT - player.height;
         player.dy = 0;
@@ -448,6 +449,7 @@ function animate() {
             }
         }
         
+        // ACHTUNG: Bodenkontakt wird anhand der neuen GAME_HEIGHT geprüft
         if (player.y + player.height >= GAME_HEIGHT) { 
             player.y = GAME_HEIGHT - player.height;
             isSinking = false; 
@@ -545,7 +547,8 @@ function animate() {
                 height = FLIGHT_POWERUP_HEIGHT; 
             }
             
-            // Y-Position des Power-Ups skaliert
+            // Y-Position des Power-Ups skaliert (muss sich zur neuen Höhe anpassen)
+            // Wir verwenden hier OBSTACLE_HEIGHT als Referenz für den Boden, um es nicht zu weit oben zu spawnen.
             const powerUpY = GAME_HEIGHT - OBSTACLE_HEIGHT - (Math.random() * 20 * SCALING_FACTOR) - height; 
             powerUp = {
                 x: canvas.width,
@@ -621,7 +624,7 @@ function animate() {
     if (score < WIN_SCORE - 1 && frame >= nextObstacleFrame) { 
         obstacles.push({
             x: canvas.width,
-            // Y-Position des Hindernisses skaliert
+            // Y-Position des Hindernisses skaliert (muss sich an neue GAME_HEIGHT anpassen)
             y: (GAME_HEIGHT - OBSTACLE_HEIGHT) + Y_OFFSET, 
             width: OBSTACLE_WIDTH,
             height: OBSTACLE_HEIGHT
@@ -687,7 +690,7 @@ function animate() {
         
         winObject = {
             x: canvas.width,
-            // Y-Position der Socke skaliert
+            // Y-Position der Socke skaliert (muss sich an neue GAME_HEIGHT anpassen)
             y: GAME_HEIGHT - SOCK_HEIGHT - (30 * SCALING_FACTOR), 
             width: SOCK_WIDTH,
             height: SOCK_HEIGHT,
