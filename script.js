@@ -152,9 +152,9 @@ function resizeGame() {
 
     // 3. BERECHNUNG ALLER ABHÄNGIGEN GRÖSSEN (Basiswerte * SCALING_FACTOR)
     
-    // Power-Up Größen
+    // Power-Up Größen (wieder 'let' verwenden, da die Funktion alle Werte neu setzen muss)
     let MULTIPLIER_WIDTH = MULTIPLIER_WIDTH_BASE * SCALING_FACTOR;    
-    let MULTIPLIER_HEIGHT = MULTIPLIER_HEIGHT_BASE * SCALINGING_FACTOR;  
+    let MULTIPLIER_HEIGHT = MULTIPLIER_HEIGHT_BASE * SCALING_FACTOR;  
     let LIFEUP_WIDTH = LIFEUP_WIDTH_BASE * SCALING_FACTOR;    
     let LIFEUP_HEIGHT = LIFEUP_HEIGHT_BASE * SCALING_FACTOR;
     let MAGNET_WIDTH = MAGNET_WIDTH_BASE * SCALING_FACTOR;    
@@ -214,8 +214,7 @@ window.addEventListener('resize', resizeGame);
 
 
 // ======================================================
-// === BILDER LADEN (Auszug) ===
-// ... (Dieser Teil bleibt gleich) ...
+// === BILDER LADEN ===
 // ======================================================
 const playerStandImg = new Image();
 playerStandImg.src = 'player_stand.png'; 
@@ -300,6 +299,39 @@ Promise.all([
     introScreen2.classList.add('hidden');
     startScreen.classList.add('hidden');
     gameOverScreen.classList.add('hidden');
+    
+    // =======================================================
+    // === KORRIGIERTE INITIALISIERUNG DER INTRO-BUTTONS ===
+    // =======================================================
+    
+    // Funktion zum Wechseln von Intro 1 zu Intro 2
+    const goToIntro2 = (e) => {
+        e.stopPropagation(); 
+        introScreen1.classList.add('hidden');
+        introScreen2.classList.remove('hidden');
+    };
+    
+    // Funktion zum Wechseln von Intro 2 zum Startbildschirm
+    const goToStartScreen = (e) => {
+        e.stopPropagation(); 
+        introScreen2.classList.add('hidden');
+        startScreen.classList.remove('hidden'); 
+    };
+
+    // FÜGE KORREKTE EVENT LISTENER HINZU
+    if (nextIntro1Btn) {
+        // Hängt Event-Listener für Klick und Touch an
+        nextIntro1Btn.addEventListener('click', goToIntro2);
+        nextIntro1Btn.addEventListener('touchstart', goToIntro2); 
+    }
+    if (nextIntro2Btn) {
+        // Hängt Event-Listener für Klick und Touch an
+        nextIntro2Btn.addEventListener('click', goToStartScreen);
+        nextIntro2Btn.addEventListener('touchstart', goToStartScreen); 
+    }
+    
+    // =======================================================
+
 });
 
 function handleInput(e) {
@@ -324,25 +356,7 @@ document.addEventListener('keydown', (e) => {
 canvas.addEventListener('mousedown', handleInput);
 canvas.addEventListener('touchstart', handleInput); 
 
-// KORREKTUR: EVENT BUBBLING STOPPEN FÜR PFEILE
-if (nextIntro1Btn) {
-    const goToIntro2 = (e) => {
-        e.stopPropagation(); 
-        introScreen1.classList.add('hidden');
-        introScreen2.classList.remove('hidden');
-    };
-    nextIntro1Btn.addEventListener('click', goToIntro2);
-    nextIntro1Btn.addEventListener('touchstart', goToIntro2); 
-}
-if (nextIntro2Btn) {
-    const goToStartScreen = (e) => {
-        e.stopPropagation(); 
-        introScreen2.classList.add('hidden');
-        startScreen.classList.remove('hidden'); 
-    };
-    nextIntro2Btn.addEventListener('click', goToStartScreen);
-    nextIntro2Btn.addEventListener('touchstart', goToStartScreen); 
-}
+
 // Klick auf Startbildschirm, um das Spiel zu starten
 if (startScreen) {
     startScreen.addEventListener('click', startGame);
@@ -697,7 +711,6 @@ function animate() {
         obstacles.push({
             x: canvas.width,
             // NEU: Y-Position des Hindernisses ist der Boden (GAME_HEIGHT) minus der Höhe des Bildes.
-            // Das verhindert das "Schweben" der Bäume.
             y: GAME_HEIGHT - currentObstacleHeight, 
             width: currentObstacleWidth,
             height: currentObstacleHeight
@@ -837,6 +850,6 @@ function animate() {
     
     ctx.shadowBlur = 0; 
     ctx.shadowColor = 'transparent';
-h
+
 } 
 });
