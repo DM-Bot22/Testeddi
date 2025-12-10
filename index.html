@@ -16,7 +16,9 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
+            /* Stellt sicher, dass Body den gesamten Viewport ausfüllt */
+            width: 100vw; 
+            height: 100vh;
             
             /* MOBILE-FIX 2: Verhindert Standard-Browser-Gesten (Scrollen, Refresh durch Wischen) */
             touch-action: none;
@@ -26,21 +28,19 @@
         }
 
         #gameCanvas {
-            border: 5px solid #333;
-            /* ALTE GRÖßEN WURDEN ENTFERNT */
+            /* NEU: WIRD NUN VOM JAVASCRIPT GESTEUERT UND NIMMT DIE VOLLE GRÖSSE EIN */
+            width: 100%; 
+            height: 100%;
+            max-width: 100vw; 
+            max-height: 100vh; 
             
+            border: 5px solid #333;
             display: block;
             background-color: #555;
-
-            /* NEU: HOCHKANT-RESPONSIVENESS (Maximiert die Fläche) */
-            max-width: 95vw; /* Maximale Viewport-Breite */
-            max-height: 95vh; /* Maximale Viewport-Höhe */
-            width: auto; 
-            height: auto; 
             
-            /* NEUES SEITENVERHÄLTNIS FÜR HOCHKANT (9:16)
-               Passt zur neuen internen Basis von 450x800 in script.js */
-            aspect-ratio: 9 / 16; 
+            /* Wenn Sie einen sichtbaren Rand möchten, können Sie die Border behalten, 
+               ansonsten entfernen Sie diese Zeile */
+            border: none; 
         }
 
         /* Allgemeine Overlay-Stile */
@@ -97,7 +97,8 @@
         }
         
         #winSockImage {
-            width: 400px !important;    
+            /* Bildergröße für den Endscreen auf mobilen Geräten besser anpassen */
+            width: 80% !important;    
             height: auto !important;
             max-width: 400px !important; 
             margin: 0 auto 20px auto !important; 
