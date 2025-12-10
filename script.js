@@ -11,8 +11,13 @@ const GAME_START_TIME = Date.now();
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// === NEUE DYNAMISCHE GRÖßENBERECHNUNG (MOBIL-OPTIMIERUNG) ===
-const BASE_WIDTH = 800; // Referenzbreite (PC-Basis): 800px
+// ======================================================
+// === HOCHKANT-GRÖßENBASIS (Rentier-Run-Logik) ===
+// ======================================================
+// NEUE Referenzbreite für Hochkant-Format (z.B. 9:16)
+const BASE_WIDTH = 450; 
+// Die interne Basis-Höhe ist nun 800px (800 / 450 = ca. 1.777)
+const BASE_RATIO = 800 / 450; 
 
 let SCALING_FACTOR;
 let GAME_WIDTH;
@@ -23,52 +28,53 @@ const POWERUP_SPAWN_SCORE = 1;
 const POWERUP_SPAWN_INTERVAL = 200;    
 const POWERUP_CHANCE = 0.5;            
 
-let MULTIPLIER_WIDTH;    
-let MULTIPLIER_HEIGHT;  
-let LIFEUP_WIDTH;    
-let LIFEUP_HEIGHT;
-let MAGNET_WIDTH;    
-let MAGNET_HEIGHT;
-let FLIGHT_POWERUP_WIDTH;  
-let FLIGHT_POWERUP_HEIGHT;
+// Basis-Werte angepasst an die neue kleinere Breite (450px)
+let MULTIPLIER_WIDTH = 80;    
+let MULTIPLIER_HEIGHT = 60;  
+let LIFEUP_WIDTH = 60;    
+let LIFEUP_HEIGHT = 60;
+let MAGNET_WIDTH = 80;    
+let MAGNET_HEIGHT = 50;
+let FLIGHT_POWERUP_WIDTH = 110;  
+let FLIGHT_POWERUP_HEIGHT = 80;
 
 // === FLUG-KONFIGURATION (AUF 'let' UMGESTELLT) ===
 const FLIGHT_DURATION = 5000;              
 const POST_FLIGHT_INVULN_DURATION = 3000;  
-let FLIGHT_RISE_SPEED;             
-let FLIGHT_SINK_SPEED;             
+let FLIGHT_RISE_SPEED = 2.5;             
+let FLIGHT_SINK_SPEED = 2.5;             
 let FLIGHT_CENTER_Y;
 let FLIGHT_CENTER_X;
 const FLIGHT_SPEED_MULTIPLIER = 2.5;
 const FLIGHT_HORIZONTAL_EASING = 0.1;
-let FLIGHT_IMAGE_WIDTH;  
-let FLIGHT_IMAGE_HEIGHT;  
+let FLIGHT_IMAGE_WIDTH = 100;  
+let FLIGHT_IMAGE_HEIGHT = 80;  
 
 // LOGIK DEFINITIONEN
-let MAGNET_RANGE;    
+let MAGNET_RANGE = 500;    
 const MAGNET_MAX_CHARGES = 3;  
 
 // === MAGNET ANZEIGE KONFIGURATION (AUF 'let' UMGESTELLT) ===
-let MAGNET_ICON_WIDTH; 
-let MAGNET_ICON_HEIGHT; 
-let MAGNET_ICON_PADDING;     
-let MAGNET_TEXT_OFFSET_X;   
-let MAGNET_DISPLAY_Y;         
+let MAGNET_ICON_WIDTH = 100; 
+let MAGNET_ICON_HEIGHT = 70; 
+let MAGNET_ICON_PADDING = 20;     
+let MAGNET_TEXT_OFFSET_X = -10;   
+let MAGNET_DISPLAY_Y = 30;         
 
 // --- KOLLISIONS- & POSITIONSEINSTELLUNGEN (AUF 'let' UMGESTELLT) ---
 const HITBOX_WIDTH_REDUCTION = 0.40;  
 const HITBOX_HEIGHT_TOP_OFFSET = 0.20; 
-let Y_OFFSET; 
-let JUMP_HEIGHT_BOOST; 
+let Y_OFFSET = 10; 
+let JUMP_HEIGHT_BOOST = 45; 
 
-let OBSTACLE_WIDTH; 
-let OBSTACLE_HEIGHT; 
-let gameSpeed; // STARTGESCHWINDIGKEIT SKALIERT
+let OBSTACLE_WIDTH = 80; 
+let OBSTACLE_HEIGHT = 130; 
+let gameSpeed = 6; // STARTGESCHWINDIGKEIT SKALIERT
 
 // Sockengrößen
-let SOCK_WIDTH;
-let SOCK_HEIGHT;
-let SOCK_Y_OFFSET;
+let SOCK_WIDTH = 700;
+let SOCK_HEIGHT = 480;
+let SOCK_Y_OFFSET = 30;
 
 // === PLAYER OBJEKT (Initialisierung auf 0, Werte werden in resizeGame gesetzt) ===
 const player = {
@@ -124,7 +130,7 @@ const nextIntro2Btn = document.getElementById('nextIntro2');
 
 
 // ======================================================
-// === HAUPT-SKALIERUNGSFUNKTION (RENTIER RUN LOGIK) ===
+// === HAUPT-SKALIERUNGSFUNKTION (HOCHKANT-KORREKTUR) ===
 // ======================================================
 function resizeGame() {
     // 1. Hole die tatsächliche Größe, die durch das responsive CSS festgelegt wurde
@@ -132,55 +138,57 @@ function resizeGame() {
 
     // 2. Definiere die interne Canvas-Auflösung basierend auf der tatsächlichen Größe
     canvas.width = canvasRect.width;
-    canvas.height = Math.round(canvas.width * (585 / 1024)); 
+    
+    // NEU: Höhe wird proportional zur NEUEN Hochkant-Basis (800 / 450) gesetzt
+    canvas.height = Math.round(canvas.width * BASE_RATIO); 
 
     // 3. Definiere den Skalierungsfaktor zur Berechnung aller Variablen
     SCALING_FACTOR = canvas.width / BASE_WIDTH;
     GAME_WIDTH = canvas.width;
     GAME_HEIGHT = canvas.height; 
 
-    // 4. NEUE BERECHNUNG ALLER ABHÄNGIGEN GRÖSSEN (Muss nach SCALING_FACTOR passieren)
+    // 4. BERECHNUNG ALLER ABHÄNGIGEN GRÖSSEN (Basiswerte * SCALING_FACTOR)
     
-    // Power-Up Größen
-    MULTIPLIER_WIDTH = 80 * SCALING_FACTOR;    
-    MULTIPLIER_HEIGHT = 60 * SCALING_FACTOR;  
-    LIFEUP_WIDTH = 60 * SCALING_FACTOR;    
-    LIFEUP_HEIGHT = 60 * SCALING_FACTOR;
-    MAGNET_WIDTH = 80 * SCALING_FACTOR;    
-    MAGNET_HEIGHT = 50 * SCALING_FACTOR;
-    FLIGHT_POWERUP_WIDTH = 110 * SCALING_FACTOR;  
-    FLIGHT_POWERUP_HEIGHT = 80 * SCALING_FACTOR;
+    // Power-Up Größen (Basiswerte werden hier mit SCALING_FACTOR multipliziert)
+    MULTIPLIER_WIDTH *= SCALING_FACTOR;    
+    MULTIPLIER_HEIGHT *= SCALING_FACTOR;  
+    LIFEUP_WIDTH *= SCALING_FACTOR;    
+    LIFEUP_HEIGHT *= SCALING_FACTOR;
+    MAGNET_WIDTH *= SCALING_FACTOR;    
+    MAGNET_HEIGHT *= SCALING_FACTOR;
+    FLIGHT_POWERUP_WIDTH *= SCALING_FACTOR;  
+    FLIGHT_POWERUP_HEIGHT *= SCALING_FACTOR;
 
     // Flug-Konfiguration
-    FLIGHT_RISE_SPEED = 2.5 * SCALING_FACTOR;             
-    FLIGHT_SINK_SPEED = 2.5 * SCALING_FACTOR;             
+    FLIGHT_RISE_SPEED *= SCALING_FACTOR;             
+    FLIGHT_SINK_SPEED *= SCALING_FACTOR;             
     FLIGHT_CENTER_Y = GAME_HEIGHT / 2 - (25 * SCALING_FACTOR);
     FLIGHT_CENTER_X = GAME_WIDTH / 2 - (37.5 * SCALING_FACTOR);
-    FLIGHT_IMAGE_WIDTH = 100 * SCALING_FACTOR;  
-    FLIGHT_IMAGE_HEIGHT = 80 * SCALING_FACTOR;  
+    FLIGHT_IMAGE_WIDTH *= SCALING_FACTOR;  
+    FLIGHT_IMAGE_HEIGHT *= SCALING_FACTOR;  
 
     // Logik Definitionen
-    MAGNET_RANGE = 500 * SCALING_FACTOR;    
+    MAGNET_RANGE *= SCALING_FACTOR;    
 
     // Magnet Anzeige
-    MAGNET_ICON_WIDTH = 100 * SCALING_FACTOR; 
-    MAGNET_ICON_HEIGHT = 70 * SCALING_FACTOR; 
-    MAGNET_ICON_PADDING = 20 * SCALING_FACTOR;     
-    MAGNET_TEXT_OFFSET_X = -10 * SCALING_FACTOR;   
-    MAGNET_DISPLAY_Y = 30 * SCALING_FACTOR;         
+    MAGNET_ICON_WIDTH *= SCALING_FACTOR; 
+    MAGNET_ICON_HEIGHT *= SCALING_FACTOR; 
+    MAGNET_ICON_PADDING *= SCALING_FACTOR;     
+    MAGNET_TEXT_OFFSET_X *= SCALING_FACTOR;   
+    MAGNET_DISPLAY_Y *= SCALING_FACTOR;         
 
     // Kollision & Position
-    Y_OFFSET = 10 * SCALING_FACTOR; 
-    JUMP_HEIGHT_BOOST = 45 * SCALING_FACTOR; 
+    Y_OFFSET *= SCALING_FACTOR; 
+    JUMP_HEIGHT_BOOST *= SCALING_FACTOR; 
 
-    OBSTACLE_WIDTH = 80 * SCALING_FACTOR; 
-    OBSTACLE_HEIGHT = 130 * SCALING_FACTOR; 
+    OBSTACLE_WIDTH *= SCALING_FACTOR; 
+    OBSTACLE_HEIGHT *= SCALING_FACTOR; 
     gameSpeed = 6 * SCALING_FACTOR; 
 
     // Socken-Variablen
-    SOCK_WIDTH = 700 * SCALING_FACTOR;
-    SOCK_HEIGHT = 480 * SCALING_FACTOR;
-    SOCK_Y_OFFSET = 30 * SCALING_FACTOR;
+    SOCK_WIDTH *= SCALING_FACTOR;
+    SOCK_HEIGHT *= SCALING_FACTOR;
+    SOCK_Y_OFFSET *= SCALING_FACTOR;
 
     // Player-Werte
     player.x = 50 * SCALING_FACTOR;
@@ -197,7 +205,7 @@ function resizeGame() {
 
 // Initialer Aufruf zur Größenberechnung
 resizeGame();
-// NEU: Event-Listener für Geräterotation/Größenänderung (MOBILE-FIX)
+// Event-Listener für Geräterotation/Größenänderung
 window.addEventListener('resize', resizeGame);
 
 
@@ -226,7 +234,6 @@ winningSockImg.src = WIN_SOCK_SRC;
 const backgroundImg = new Image();
 backgroundImg.src = 'background.jpg'; 
 
-// NEU: Bilder für Intro-Screens laden
 const pergamentImg = new Image();
 pergamentImg.src = 'pergament.jpg'; 
 const eddiImg = new Image();
@@ -282,7 +289,7 @@ Promise.all([
     player.y = GAME_HEIGHT - player.height;
     
     nextObstacleFrame = Math.floor(Math.random() * (MAX_GAP - MIN_GAP)) + MIN_GAP;
-    // NEU: Beim Laden der Seite nur IntroScreen1 zeigen
+    // Beim Laden der Seite nur IntroScreen1 zeigen
     introScreen1.classList.remove('hidden');
     introScreen2.classList.add('hidden');
     startScreen.classList.add('hidden');
@@ -290,7 +297,7 @@ Promise.all([
 });
 
 function handleInput(e) {
-    // NEU: Verhindert Standard-Browser-Verhalten beim Tippen/Klicken (MOBILE-FIX)
+    // Verhindert Standard-Browser-Verhalten beim Tippen/Klicken (MOBILE-FIX)
     if(e) e.preventDefault(); 
     
     // HandleInput nur, wenn das Spiel läuft
@@ -307,44 +314,36 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// NEU: Touch-Eingabe auf Canvas
+// Touch-Eingabe auf Canvas
 canvas.addEventListener('mousedown', handleInput);
 canvas.addEventListener('touchstart', handleInput); 
 
 // ==========================================================
-// === WICHTIGE KORREKTUR: EVENT BUBBLING STOPPEN FÜR PFEILE ===
+// === KORREKTUR: EVENT BUBBLING STOPPEN FÜR PFEILE ===
 // ==========================================================
 
 if (nextIntro1Btn) {
-    nextIntro1Btn.addEventListener('click', (e) => {
+    const goToIntro2 = (e) => {
         e.stopPropagation(); // Wichtig: Verhindert, dass der Klick das Spiel startet
         introScreen1.classList.add('hidden');
         introScreen2.classList.remove('hidden');
-    });
-    // Füge Touch-Listener hinzu, um es auf dem Smartphone zu garantieren
-    nextIntro1Btn.addEventListener('touchstart', (e) => {
-        e.stopPropagation(); 
-        introScreen1.classList.add('hidden');
-        introScreen2.classList.remove('hidden');
-    });
+    };
+    nextIntro1Btn.addEventListener('click', goToIntro2);
+    nextIntro1Btn.addEventListener('touchstart', goToIntro2); 
 }
 if (nextIntro2Btn) {
-    nextIntro2Btn.addEventListener('click', (e) => {
+    const goToStartScreen = (e) => {
         e.stopPropagation(); // Wichtig: Verhindert, dass der Klick das Spiel startet
         introScreen2.classList.add('hidden');
         startScreen.classList.remove('hidden'); // Zeigt den Startbildschirm an
-    });
-    // Füge Touch-Listener hinzu, um es auf dem Smartphone zu garantieren
-    nextIntro2Btn.addEventListener('touchstart', (e) => {
-        e.stopPropagation(); 
-        introScreen2.classList.add('hidden');
-        startScreen.classList.remove('hidden'); // Zeigt den Startbildschirm an
-    });
+    };
+    nextIntro2Btn.addEventListener('click', goToStartScreen);
+    nextIntro2Btn.addEventListener('touchstart', goToStartScreen); 
 }
 // Klick auf Startbildschirm, um das Spiel zu starten
 if (startScreen) {
     startScreen.addEventListener('click', startGame);
-    startScreen.addEventListener('touchstart', startGame); // NEU: Für Touch-Geräte
+    startScreen.addEventListener('touchstart', startGame); // Für Touch-Geräte
     
     document.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && !gameRunning && !startScreen.classList.contains('hidden')) {
@@ -355,8 +354,6 @@ if (startScreen) {
 
 
 // === END-LOGIK ===
-// Logik angepasst, um Buttons je nach Win/Loss anzuzeigen und neuen Text zu nutzen
-
 function endGame(isWin) {
     gameRunning = false;
     gameWon = isWin;
@@ -377,7 +374,6 @@ function endGame(isWin) {
     
     if (isWin) {
         endTitleElement.textContent = 'DU HAST ES GESCHAFFT!';
-        // Text mit kleinerer Schriftgröße für den zweiten Satz
         endMessageElement.innerHTML = `
             <span style="font-size: 1.5em; display: block; margin-bottom: 10px;">Eddi der Haushund hat seine Socke bekommen und ist nun frei.</span>
             .
@@ -392,7 +388,6 @@ function endGame(isWin) {
     } 
     else {
         endTitleElement.textContent = 'Game Over';
-        // HIER: Der angepasste Verlierer-Text, den du zuletzt wollten
         endMessageElement.innerHTML = `Leider hast du die Socke für Eddi nicht bekommen.`; 
         sockImageElement.classList.add('hidden'); 
         
@@ -416,7 +411,7 @@ function gameWin() {
 // === START LOGIK ===
 
 function startGame() {
-    // NEU: Sicherstellen, dass die Canvas-Größe bei Start korrekt ist (z.B. nach Rotation)
+    // Sicherstellen, dass die Canvas-Größe bei Start korrekt ist (z.B. nach Rotation)
     resizeGame();
     
     gameRunning = true;
@@ -426,6 +421,7 @@ function startGame() {
     scoreMultiplier = 1; 
     lives = 0; 
     
+    // Die Geschwindigkeit muss neu skaliert werden, wenn resizeGame() die Skalierung ändert
     gameSpeed = 6 * SCALING_FACTOR; 
     speedIncreasePoint = 100; 
     powerUp = null; 
@@ -446,12 +442,13 @@ function startGame() {
     sockSpawned = false; 
     
     nextObstacleFrame = Math.floor(Math.random() * (MAX_GAP - MIN_GAP)) + MIN_GAP; 
-    player.y = GAME_HEIGHT - player.height;
-    player.x = 50 * SCALING_FACTOR; 
-    startScreen.classList.add('hidden'); // Stellt sicher, dass der Startbildschirm ausgeblendet wird
-    gameOverScreen.classList.add('hidden');
     
-    // Blendet Intro-Bildschirme aus, falls noch sichtbar
+    // Player-Position auf skalierten Hochkant-Werten zurücksetzen
+    player.x = 50 * SCALING_FACTOR;
+    player.y = GAME_HEIGHT - player.height;
+    
+    startScreen.classList.add('hidden'); 
+    gameOverScreen.classList.add('hidden');
     introScreen1.classList.add('hidden');
     introScreen2.classList.add('hidden');
 
@@ -469,14 +466,13 @@ function animate() {
     // ======================================
     
     if (score >= speedIncreasePoint) {
-        // Die Geschwindigkeitserhöhung muss ebenfalls skaliert werden
+        // Geschwindigkeitserhöhung muss skaliert werden
         gameSpeed += 0.5 * SCALING_FACTOR;
         speedIncreasePoint += 100; 
     }
     
     const currentSpeed = isFlying ? gameSpeed * FLIGHT_SPEED_MULTIPLIER : gameSpeed;
 
-    // FEHLERBEHEBUNG: Garantiere den letzten Punkt, wenn das Spawning stoppt
     if (score === WIN_SCORE - 1 && score < WIN_SCORE) {
         score = WIN_SCORE;
     }
@@ -487,8 +483,9 @@ function animate() {
         player.y += player.dy;
     }
     
+    // X-Position für Hochkant auf der linken Seite fixieren
     if (!isFlying && !isSinking) {
-        player.x = 50 * SCALING_FACTOR; // Zurücksetzen auf skalierten Wert
+        player.x = 50 * SCALING_FACTOR; 
     }
 
     if (player.y + player.height > GAME_HEIGHT) {
@@ -529,14 +526,14 @@ function animate() {
     else if (isSinking) {
         player.y += FLIGHT_SINK_SPEED; 
         
-        const targetX = 50 * SCALING_FACTOR; // Ziel-X skaliert
+        const targetX = 50 * SCALING_FACTOR; 
         const easingFactor = FLIGHT_HORIZONTAL_EASING;
         
         if (player.x !== targetX) {
             const dx = targetX - player.x; 
             player.x += dx * easingFactor; 
             
-            if (Math.abs(player.x - targetX) < 0.5 * SCALING_FACTOR) { // Toleranz skaliert
+            if (Math.abs(player.x - targetX) < 0.5 * SCALING_FACTOR) { 
                 player.x = targetX;
             }
         }
@@ -545,7 +542,7 @@ function animate() {
             player.y = GAME_HEIGHT - player.height;
             isSinking = false; 
             
-            player.x = 50 * SCALING_FACTOR; // Rückkehr zur Basis-X skaliert
+            player.x = 50 * SCALING_FACTOR; 
             
             isInvulnerable = true;
             invulnStartTime = performance.now();
@@ -557,7 +554,7 @@ function animate() {
             isInvulnerable = false; 
         }
         if (player.x !== 50 * SCALING_FACTOR) {
-            player.x = 50 * SCALING_FACTOR; // X-Position auf skalierten Wert setzen
+            player.x = 50 * SCALING_FACTOR; 
         }
     }
     // ENDE FLUG- UND PHYSIK-LOGIK
@@ -572,7 +569,7 @@ function animate() {
         imageToDraw = playerFlightImg;
         drawWidth = FLIGHT_IMAGE_WIDTH; 
         drawHeight = FLIGHT_IMAGE_HEIGHT;
-        drawY = player.y - (5 * SCALING_FACTOR); // Y-Offset skaliert
+        drawY = player.y - (5 * SCALING_FACTOR); 
     } 
     else if (player.grounded) { 
         imageToDraw = playerStandImg;
@@ -597,10 +594,7 @@ function animate() {
     // SPWANING & MAGNET LOGIK
     frame++;
 
-    // ======================================================
     // === POWER-UP SPAWN LOGIK (Stoppt bei WIN_SCORE - 1) ===
-    // ======================================================
-    
     if (score < WIN_SCORE - 1 && powerUp === null && frame >= POWERUP_SPAWN_SCORE && frame % POWERUP_SPAWN_INTERVAL === 0) {
         if (Math.random() < POWERUP_CHANCE) {
             let type, width, height;
@@ -617,6 +611,7 @@ function animate() {
                 type = 'FLIGHT'; 
             }
             
+            // Vermeide doppelte Power-Ups
             if (type === 'MAGNET' && activePowerUp === 'MAGNET') {
                 type = 'MULTIPLIER';
             }
@@ -624,22 +619,24 @@ function animate() {
                 type = 'MULTIPLIER';
             }
 
+            // Basiswerte vor Multiplikation nutzen
+            let baseWidth = 0;
+            let baseHeight = 0;
             if (type === 'MULTIPLIER') {
-                width = MULTIPLIER_WIDTH;
-                height = MULTIPLIER_HEIGHT;
+                baseWidth = 80; baseHeight = 60;
             } else if (type === 'MAGNET') {
-                width = MAGNET_WIDTH;
-                height = MAGNET_HEIGHT;
+                baseWidth = 80; baseHeight = 50;
             } else if (type === 'LIFE') {
-                width = LIFEUP_WIDTH;
-                height = LIFEUP_HEIGHT;
+                baseWidth = 60; baseHeight = 60;
             } else { 
-                width = FLIGHT_POWERUP_WIDTH; 
-                height = FLIGHT_POWERUP_HEIGHT; 
+                baseWidth = 110; baseHeight = 80; 
             }
+
+            width = baseWidth * SCALING_FACTOR;
+            height = baseHeight * SCALING_FACTOR;
             
-            // Y-Position des Power-Ups skaliert
-            const powerUpY = GAME_HEIGHT - OBSTACLE_HEIGHT - (Math.random() * 20 * SCALING_FACTOR) - height; 
+            // Y-Position des Power-Ups skaliert (Basis-Werte 130 + 20)
+            const powerUpY = GAME_HEIGHT - (130 * SCALING_FACTOR) - (Math.random() * 20 * SCALING_FACTOR) - height; 
             powerUp = {
                 x: canvas.width,
                 y: powerUpY,
@@ -661,7 +658,6 @@ function animate() {
             const dy = (powerUp.y + powerUp.height / 2) - (player.y + player.height / 2);
             const distance = Math.sqrt(dx * dx + dy * dy);
             
-            // Magnetgeschwindigkeit skaliert
             const magnetPullSpeed = currentSpeed * 4; 
 
             if (distance < MAGNET_RANGE) {
@@ -702,9 +698,7 @@ function animate() {
         }
     }
 
-    // ======================================================
     // === HINDERNIS-LOGIK (Stoppt bei WIN_SCORE - 1) ===
-    // ======================================================
     
     const gapScaling = isFlying ? FLIGHT_SPEED_MULTIPLIER : 1; 
     
@@ -714,8 +708,8 @@ function animate() {
     if (score < WIN_SCORE - 1 && frame >= nextObstacleFrame) { 
         obstacles.push({
             x: canvas.width,
-            // Y-Position des Hindernisses skaliert
-            y: (GAME_HEIGHT - OBSTACLE_HEIGHT) + Y_OFFSET, 
+            // Y-Position des Hindernisses skaliert (Basis-Wert 130 + 10)
+            y: (GAME_HEIGHT - (130 * SCALING_FACTOR)) + (10 * SCALING_FACTOR), 
             width: OBSTACLE_WIDTH,
             height: OBSTACLE_HEIGHT
         });
@@ -759,7 +753,6 @@ function animate() {
         if (obs.x + obs.width < 0) {
             obstacles.splice(i, 1);
             
-            // Punktgewinn nur bis zu WIN_SCORE - 2, da der letzte Punkt garantiert wird
             if (score < WIN_SCORE - 1) {
                 score += 1 * scoreMultiplier; 
             }
@@ -768,11 +761,7 @@ function animate() {
         }
     }
     
-    // ======================================================
     // === SOCKE-GEWINN-LOGIK (Einsammeln) ===
-    // ======================================================
-    
-    // Spawnen der Socke (passiert nur einmal, wenn der Score erreicht ist)
     if (score >= WIN_SCORE && !sockSpawned && winObject === null) {
         sockSpawned = true; 
         
@@ -789,28 +778,22 @@ function animate() {
     if (winObject) {
         winObject.x -= currentSpeed; 
         
-        // Zeichne das Sockenbild (winningSockImg)
         ctx.drawImage(winningSockImg, winObject.x, winObject.y, winObject.width, winObject.height);
         
-        // Kollisionsprüfung mit dem Spieler
         if (
             player.x < winObject.x + winObject.width &&
             player.x + player.width > winObject.x &&
             player.y < winObject.y + winObject.height &&
             player.y + player.height > winObject.y
         ) {
-            // Socke eingesammelt: SOFORTIGER GEWINN!
             gameWin(); 
             return; 
         }
 
-        // Wenn die Socke außerhalb des Bildschirms ist, wird sie entfernt 
         if (winObject.x + winObject.width < 0) {
             winObject = null;
         }
     }
-    
-    // ======================================================
     
     // SCOREBOARD ANZEIGEN (Schriftgröße skaliert)
     ctx.font = `${Math.round(24 * SCALING_FACTOR)}px Arial, sans-serif`; 
@@ -837,13 +820,9 @@ function animate() {
         
         const ZAHL_Y_KORREKTUR = 15 * SCALING_FACTOR; 
         
-        // Berechnet die X-Position basierend auf der neuen Breite
         const iconX = canvas.width - MAGNET_ICON_WIDTH - MAGNET_ICON_PADDING; 
-        
-        // Berechnet die Y-Position basierend auf der neuen Höhe
         const iconY = MAGNET_DISPLAY_Y - (MAGNET_ICON_HEIGHT / 2); 
         
-        // Verwendet die neuen skalierten Breiten- und Höhenvariablen
         ctx.drawImage(magnetImg, iconX, iconY, MAGNET_ICON_WIDTH, MAGNET_ICON_HEIGHT); 
 
         // Textgröße skaliert
