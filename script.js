@@ -1,747 +1,486 @@
-// HINWEIS: Der gesamte Code ist in DOMContentLoaded eingeschlossen!
-
 document.addEventListener('DOMContentLoaded', (event) => {
-// --- KONFIGURATION ---
-const ZIEL_URL = "https://www.google.de"; 
-const WIN_SCORE = 10; 
-const WIN_SOCK_SRC = 'sock_image.png'; 
-const GAME_START_TIME = Date.now();
+    // --- KONFIGURATION ---
+    const ZIEL_URL = "https://www.google.de"; 
+    const WIN_SCORE = 10; 
+    const WIN_SOCK_SRC = 'sock_image.png'; 
 
-// Original (Basis-) Dimensionen für die Berechnung des Skalierungsfaktors
-const BASE_WIDTH = 800; 
-// Das Seitenverhältnis (585 / 1024) beibehalten, um die korrekte Logikhöhe zu bestimmen
-const BASE_HEIGHT_RATIO = 585 / 1024; 
-const BASE_HEIGHT = BASE_WIDTH * BASE_HEIGHT_RATIO; 
-// --------------------
+    // Basis-Dimensionen für Skalierung
+    const BASE_WIDTH = 800; 
+    const BASE_HEIGHT_RATIO = 585 / 1024; 
+    const BASE_HEIGHT = BASE_WIDTH * BASE_HEIGHT_RATIO; 
+    // --------------------
 
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
 
-// === ROBUSTE 'CONTAIN' SKALIERUNG ===
-// 1. Hole die tatsächliche Größe, die durch das Fullscreen-CSS festgelegt wurde
-const canvasRect = canvas.getBoundingClientRect();
+    // === VARIABLEN FÜR SKALIERUNG ===
+    let SCALING_FACTOR = 1;
+    let GAME_WIDTH, GAME_HEIGHT, X_OFFSET_DRAWING, Y_OFFSET_DRAWING;
 
-// 2. Definiere die interne Canvas-Auflösung auf die tatsächliche angezeigte Größe
-canvas.width = canvasRect.width;
-canvas.height = canvasRect.height; 
+    // === RESIZE FUNKTION (Wie im Rentier Run) ===
+    function resizeGame() {
+        // Nutze window.innerWidth/Height für volle Handy-Größe
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
 
-// 3. Bestimme den besten Skalierungsfaktor ('Contain'-Logik)
-// Berechnet, wie oft die Basis-Breite in die Canvas-Breite passt
-const scaleX = canvas.width / BASE_WIDTH;
-// Berechnet, wie oft die Basis-Höhe in die Canvas-Höhe passt
-const scaleY = canvas.height / BASE_HEIGHT;
+        // Skalierungsfaktor berechnen ('Contain'-Logik)
+        const scaleX = canvas.width / BASE_WIDTH;
+        const scaleY = canvas.height / BASE_HEIGHT;
+        SCALING_FACTOR = Math.min(scaleX, scaleY); 
 
-// Nutze den kleineren Faktor, um Verzerrung zu vermeiden und innerhalb der Grenzen zu bleiben
-const SCALING_FACTOR = Math.min(scaleX, scaleY); 
+        // Spielbereich berechnen
+        GAME_WIDTH = BASE_WIDTH * SCALING_FACTOR;
+        GAME_HEIGHT = BASE_HEIGHT * SCALING_FACTOR; 
 
-// 4. Definiere die logische Größe des Spielbereichs
-// Dies ist der Bereich, der tatsächlich gezeichnet wird (mit korrektem Seitenverhältnis)
-const GAME_WIDTH = BASE_WIDTH * SCALING_FACTOR;
-const GAME_HEIGHT = BASE_HEIGHT * SCALING_FACTOR; 
-
-// 5. Berechne den Offset, um das Spiel zu zentrieren (horizontal und vertikal)
-const X_OFFSET_DRAWING = (canvas.width - GAME_WIDTH) / 2;
-const Y_OFFSET_DRAWING = (canvas.height - GAME_HEIGHT) / 2;
-// === ENDE LOGIK FÜR ROBUSTE 'CONTAIN' SKALIERUNG ===
-
-
-// --- POWER-UP KONFIGURATION (ALLE WERTE SKALIERT) ---
-const POWERUP_SPAWN_SCORE = 1;      
-const POWERUP_SPAWN_INTERVAL = 200;    
-const POWERUP_CHANCE = 0.5;            
-
-// ALLE KONSTANTEN SKALIEREN NACH DEM NEU BERECHNETEN SCALING_FACTOR
-const MULTIPLIER_WIDTH = 80 * SCALING_FACTOR;    
-const MULTIPLIER_HEIGHT = 60 * SCALING_FACTOR;  
-const LIFEUP_WIDTH = 60 * SCALING_FACTOR;    
-const LIFEUP_HEIGHT = 60 * SCALING_FACTOR;
-const MAGNET_WIDTH = 80 * SCALING_FACTOR;    
-const MAGNET_HEIGHT = 50 * SCALING_FACTOR;
-const FLIGHT_POWERUP_WIDTH = 110 * SCALING_FACTOR;  
-const FLIGHT_POWERUP_HEIGHT = 80 * SCALING_FACTOR;
-
-// === FLUG-KONFIGURATION (ALLE WERTE SKALIERT) ===
-const FLIGHT_DURATION = 5000;              
-const POST_FLIGHT_INVULN_DURATION = 3000;  
-const FLIGHT_RISE_SPEED = 2.5 * SCALING_FACTOR;             
-const FLIGHT_SINK_SPEED = 2.5 * SCALING_FACTOR;             
-const FLIGHT_CENTER_Y = GAME_HEIGHT / 2 - (25 * SCALING_FACTOR); 
-const FLIGHT_CENTER_X = GAME_WIDTH / 2 - (37.5 * SCALING_FACTOR);
-const FLIGHT_SPEED_MULTIPLIER = 2.5;
-const FLIGHT_HORIZONTAL_EASING = 0.1;
-const FLIGHT_IMAGE_WIDTH = 100 * SCALING_FACTOR;  
-const FLIGHT_IMAGE_HEIGHT = 80 * SCALING_FACTOR;  
-
-// LOGIK DEFINITIONEN
-const MAGNET_RANGE = 500 * SCALING_FACTOR;    
-const MAGNET_MAX_CHARGES = 3;  
-
-// === MAGNET ANZEIGE KONFIGURATION (ALLE WERTE SKALIERT) ===
-const MAGNET_ICON_WIDTH = 100 * SCALING_FACTOR; 
-const MAGNET_ICON_HEIGHT = 70 * SCALING_FACTOR; 
-const MAGNET_ICON_PADDING = 20 * SCALING_FACTOR;     
-const MAGNET_TEXT_OFFSET_X = -10 * SCALING_FACTOR;   
-const MAGNET_DISPLAY_Y = 30 * SCALING_FACTOR;         
-
-// --- KOLLISIONS- & POSITIONSEINSTELLUNGEN (ALLE WERTE SKALIERT) ---
-const HITBOX_WIDTH_REDUCTION = 0.40;  
-const HITBOX_HEIGHT_TOP_OFFSET = 0.20; 
-const Y_OFFSET = 10 * SCALING_FACTOR; 
-const JUMP_HEIGHT_BOOST = 45 * SCALING_FACTOR; 
-
-// --- ZUSTANDSVARIABLEN ---
-let gameRunning = false;
-let score = 0;
-let gameSpeed = 6 * SCALING_FACTOR; // STARTGESCHWINDIGKEIT SKALIERT NEU
-let scoreMultiplier = 1; 
-let powerUp = null; 
-let activePowerUp = null; 
-let lives = 0; 
-let magnetCharges = 0; 
-
-let isFlying = false;        
-let isSinking = false;       
-let isInvulnerable = false;  
-let flightStartTime = 0;     
-let invulnStartTime = 0;     
-
-let gameWon = false; 
-let gameEndScore = 0; 
-
-let nextObstacleFrame = 0; 
-const MIN_GAP = 60;        
-const MAX_GAP = 120;       
-
-// === SOCKE VARIABLEN ===
-let sockSpawned = false; 
-let winObject = null;    
-// =======================
-
-const player = {
-    x: 50 * SCALING_FACTOR, 
-    y: GAME_HEIGHT - (50 * SCALING_FACTOR), // Y-Position relativ zu GAME_HEIGHT
-    width: 75 * SCALING_FACTOR, 
-    height: 50 * SCALING_FACTOR, 
-    dy: 0,
-    jumpPower: -18 * SCALING_FACTOR, 
-    gravity: 0.6 * SCALING_FACTOR, 
-    grounded: false
-};
-
-const OBSTACLE_WIDTH = 80 * SCALING_FACTOR; 
-const OBSTACLE_HEIGHT = 130 * SCALING_FACTOR; 
-let obstacles = [];
-let frame = 0;
-let speedIncreasePoint = 100; 
-
-// Elemente holen
-const startScreen = document.getElementById('startScreen');
-const gameOverScreen = document.getElementById('gameOverScreen');
-const introScreen1 = document.getElementById('introScreen1');
-const introScreen2 = document.getElementById('introScreen2');
-const nextIntro1Btn = document.getElementById('nextIntro1');
-const nextIntro2Btn = document.getElementById('nextIntro2');
-
-
-// ======================================================
-// === BILDER LADEN (Unverändert) ===
-// ======================================================
-const playerStandImg = new Image();
-playerStandImg.src = 'player_stand.png'; 
-const playerJumpImg = new Image();
-playerJumpImg.src = 'player_jump.png';  
-const playerFlightImg = new Image(); 
-playerFlightImg.src = 'player_flight.png'; 
-const obstacleImg = new Image();
-obstacleImg.src = 'obstacle.png'; 
-const multiplierImg = new Image();
-multiplierImg.src = 'multiplier.png'; 
-const lifeImg = new Image();
-lifeImg.src = 'life.png'; 
-const magnetImg = new Image();
-magnetImg.src = 'magnet.png'; 
-const flightImg = new Image(); 
-flightImg.src = 'flight_powerup.png'; 
-const winningSockImg = new Image();
-winningSockImg.src = WIN_SOCK_SRC; 
-
-const backgroundImg = new Image();
-backgroundImg.src = 'background.jpg'; 
-
-const pergamentImg = new Image();
-pergamentImg.src = 'pergament.jpg'; 
-const eddiImg = new Image();
-eddiImg.src = 'eddi_hund.png';
-const arrowRightImg = new Image();
-arrowRightImg.src = 'arrow_right.png';
-
-
-function activatePowerUp(type) {
-    if (type === 'MULTIPLIER') {
-        if (scoreMultiplier === 1) {
-            scoreMultiplier = 2;
-        } else if (scoreMultiplier === 2) {
-            scoreMultiplier = 4;
-        } else if (scoreMultiplier === 4) {
-            scoreMultiplier = 8;
-        } else {
-            scoreMultiplier += 2;
-        }
-    } else if (type === 'LIFE') {
-        if (lives < 1) {
-            lives = 1; 
-        }
-    } else if (type === 'MAGNET') {
-        activePowerUp = 'MAGNET';
-        magnetCharges = MAGNET_MAX_CHARGES; 
-    } else if (type === 'FLIGHT') { 
-        isFlying = true;
-        flightStartTime = performance.now();
-        isSinking = false;
-        isInvulnerable = false;
+        // Zentrierung
+        X_OFFSET_DRAWING = (canvas.width - GAME_WIDTH) / 2;
+        Y_OFFSET_DRAWING = (canvas.height - GAME_HEIGHT) / 2;
+        
+        // Hinweis: Wenn sich die Größe während des Spiels ändert (Drehung), 
+        // starten wir hier nicht neu, sondern passen nur die Zeichenlogik an.
+        // Die physikalischen Positionen (player.x) skalieren wir nicht live um, 
+        // das wäre sehr komplex. Am besten Seite neu laden bei Drehung.
     }
-}
 
-
-// WICHTIG: Warte, bis ALLE Bilder geladen sind
-Promise.all([
-    new Promise(resolve => playerStandImg.onload = resolve),
-    new Promise(resolve => playerJumpImg.onload = resolve),
-    new Promise(resolve => playerFlightImg.onload = resolve), 
-    new Promise(resolve => obstacleImg.onload = resolve),
-    new Promise(resolve => multiplierImg.onload = resolve),
-    new Promise(resolve => lifeImg.onload = resolve),
-    new Promise(resolve => magnetImg.onload = resolve),
-    new Promise(resolve => flightImg.onload = resolve),
-    new Promise(resolve => winningSockImg.onload = resolve),
-    new Promise(resolve => backgroundImg.onload = resolve),
-    new Promise(resolve => pergamentImg.onload = resolve), 
-    new Promise(resolve => eddiImg.onload = resolve),      
-    new Promise(resolve => arrowRightImg.onload = resolve) 
-]).then(() => {
-    // Die player.y Position wird beim Start auf den korrekten, skalierten Wert gesetzt.
-    player.y = GAME_HEIGHT - player.height;
+    // Initialer Aufruf
+    resizeGame();
     
-    nextObstacleFrame = Math.floor(Math.random() * (MAX_GAP - MIN_GAP)) + MIN_GAP;
-    // Beim Laden der Seite nur IntroScreen1 zeigen
-    introScreen1.classList.remove('hidden');
-    introScreen2.classList.add('hidden');
-    startScreen.classList.add('hidden');
-    gameOverScreen.classList.add('hidden');
-});
-
-function handleInput() {
-    // HandleInput nur, wenn das Spiel läuft
-    if (gameRunning && player.grounded) { 
-        player.dy = player.jumpPower;
-        player.grounded = false;
-    }
-}
-
-document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') {
-        e.preventDefault(); 
-        handleInput();
-    }
-});
-
-// Touch-Eingabe 
-canvas.addEventListener('mousedown', handleInput);
-canvas.addEventListener('touchstart', handleInput); 
-
-// Event-Listener für die Intro-Buttons
-if (nextIntro1Btn) {
-    nextIntro1Btn.addEventListener('click', (e) => {
-        e.stopPropagation(); 
-        introScreen1.classList.add('hidden');
-        introScreen2.classList.remove('hidden');
+    // Bei Bildschirmdrehung Seite neu laden (einfachste Lösung für korrekte Skalierung)
+    window.addEventListener('resize', () => {
+        resizeGame();
+        // Optional: location.reload(); falls Positionen völlig falsch sind
     });
-}
-if (nextIntro2Btn) {
-    nextIntro2Btn.addEventListener('click', (e) => {
-        e.stopPropagation(); 
-        introScreen2.classList.add('hidden');
-        startScreen.classList.remove('hidden'); // Zeigt den Startbildschirm an
-    });
-}
-// Klick auf Startbildschirm, um das Spiel zu starten
-if (startScreen) {
-    startScreen.addEventListener('click', startGame);
-    // Zusätzlicher Event-Listener für Tastatur im Startbildschirm
-    document.addEventListener('keydown', (e) => {
-        if (e.code === 'Space' && !gameRunning && !startScreen.classList.contains('hidden')) {
-            startGame();
+
+    // --- OBJEKT-GRÖSSEN FUNKTION ---
+    // Wir machen das als Funktion, damit wir Werte abrufen können
+    function getScaled(val) { return val * SCALING_FACTOR; }
+
+    // KONSTANTEN WERTE (werden dynamisch berechnet)
+    // Wir nutzen Getter, damit sie immer aktuell zum Scaling Factor sind
+    const CONFIG = {
+        MULTIPLIER_WIDTH: () => getScaled(80),
+        MULTIPLIER_HEIGHT: () => getScaled(60),
+        LIFEUP_WIDTH: () => getScaled(60),
+        LIFEUP_HEIGHT: () => getScaled(60),
+        MAGNET_WIDTH: () => getScaled(80),
+        MAGNET_HEIGHT: () => getScaled(50),
+        FLIGHT_WIDTH: () => getScaled(110),
+        FLIGHT_HEIGHT: () => getScaled(80),
+        MAGNET_RANGE: () => getScaled(500),
+        MAGNET_ICON_W: () => getScaled(100),
+        MAGNET_ICON_H: () => getScaled(70),
+        OBSTACLE_W: () => getScaled(80),
+        OBSTACLE_H: () => getScaled(130),
+        Y_OFFSET: () => getScaled(10),
+        SOCK_W: () => getScaled(700),
+        SOCK_H: () => getScaled(480),
+        SPEED: () => getScaled(6)
+    };
+
+    // --- ZUSTANDSVARIABLEN ---
+    let gameRunning = false;
+    let score = 0;
+    let gameSpeed = CONFIG.SPEED();
+    let scoreMultiplier = 1; 
+    let powerUp = null; 
+    let activePowerUp = null; 
+    let lives = 0; 
+    let magnetCharges = 0; 
+    let isFlying = false, isSinking = false, isInvulnerable = false;
+    let flightStartTime = 0, invulnStartTime = 0;     
+    let gameWon = false; 
+    let sockSpawned = false; 
+    let winObject = null;    
+    let obstacles = [];
+    let frame = 0;
+    let speedIncreasePoint = 100; 
+    let nextObstacleFrame = 0;
+    const MIN_GAP = 60, MAX_GAP = 120;       
+
+    // Flug Konstanten
+    const FLIGHT = {
+        DURATION: 5000,
+        INVULN: 3000,
+        RISE: () => getScaled(2.5),
+        SINK: () => getScaled(2.5),
+        CENTER_Y: () => GAME_HEIGHT / 2 - getScaled(25),
+        CENTER_X: () => GAME_WIDTH / 2 - getScaled(37.5),
+        IMG_W: () => getScaled(100),
+        IMG_H: () => getScaled(80),
+        MULTIPLIER: 2.5,
+        EASING: 0.1
+    };
+
+    const player = {
+        x: 0, // Wird bei Start gesetzt
+        y: 0, 
+        w_base: 75, h_base: 50,
+        jump_base: -18, grav_base: 0.6,
+        dy: 0, grounded: false,
+        
+        // Dynamische Getter für aktuelle Größe
+        get width() { return getScaled(this.w_base); },
+        get height() { return getScaled(this.h_base); },
+        get jumpPower() { return getScaled(this.jump_base); },
+        get gravity() { return getScaled(this.grav_base); }
+    };
+
+    // Elemente holen
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const introScreen1 = document.getElementById('introScreen1');
+    const introScreen2 = document.getElementById('introScreen2');
+    const nextIntro1Btn = document.getElementById('nextIntro1');
+    const nextIntro2Btn = document.getElementById('nextIntro2');
+
+    // BILDER LADEN
+    const playerStandImg = new Image(); playerStandImg.src = 'player_stand.png'; 
+    const playerJumpImg = new Image(); playerJumpImg.src = 'player_jump.png';  
+    const playerFlightImg = new Image(); playerFlightImg.src = 'player_flight.png'; 
+    const obstacleImg = new Image(); obstacleImg.src = 'obstacle.png'; 
+    const multiplierImg = new Image(); multiplierImg.src = 'multiplier.png'; 
+    const lifeImg = new Image(); lifeImg.src = 'life.png'; 
+    const magnetImg = new Image(); magnetImg.src = 'magnet.png'; 
+    const flightImg = new Image(); flightImg.src = 'flight_powerup.png'; 
+    const winningSockImg = new Image(); winningSockImg.src = WIN_SOCK_SRC; 
+    const backgroundImg = new Image(); backgroundImg.src = 'background.jpg'; 
+    const pergamentImg = new Image(); pergamentImg.src = 'pergament.jpg'; 
+    const eddiImg = new Image(); eddiImg.src = 'eddi_hund.png';
+    const arrowRightImg = new Image(); arrowRightImg.src = 'arrow_right.png';
+
+    function activatePowerUp(type) {
+        if (type === 'MULTIPLIER') {
+            scoreMultiplier = (scoreMultiplier >= 8) ? scoreMultiplier + 2 : scoreMultiplier * 2;
+        } else if (type === 'LIFE') {
+            if (lives < 1) lives = 1; 
+        } else if (type === 'MAGNET') {
+            activePowerUp = 'MAGNET';
+            magnetCharges = 3; 
+        } else if (type === 'FLIGHT') { 
+            isFlying = true;
+            flightStartTime = performance.now();
+            isSinking = false; isInvulnerable = false;
         }
-    });
-}
-
-
-// === END-LOGIK (Unverändert) ===
-function endGame(isWin) {
-    gameRunning = false;
-    gameWon = isWin;
-    gameEndScore = score;
-    
-    const endTitleElement = document.getElementById('gameOverTitle');
-    const endMessageElement = document.getElementById('gameOverMessage');
-    const sockImageElement = document.getElementById('winSockImage');
-    const surpriseBtn = document.getElementById('surpriseBtn'); 
-    const restartBtn = document.getElementById('restartBtn');    
-    
-    if (!endTitleElement || !endMessageElement || !sockImageElement || !surpriseBtn || !restartBtn) {
-        console.error("FATALER FEHLER: Endscreen-Elemente fehlen im HTML. Bitte prüfe die IDs!");
-        alert("SPIEL ENDE - HTML-Elemente für den Endscreen fehlen oder sind falsch benannt.");
-        gameOverScreen.classList.remove('hidden');
-        return; 
-    }
-    
-    if (isWin) {
-        endTitleElement.textContent = 'DU HAST ES GESCHAFFT!';
-        endMessageElement.innerHTML = `
-            <span style="font-size: 1.5em; display: block; margin-bottom: 10px;">Eddi der Haushund hat seine Socke bekommen und ist nun frei.</span>
-            .
-        `;
-        sockImageElement.classList.remove('hidden'); 
-        
-        surpriseBtn.classList.remove('hidden'); 
-        restartBtn.classList.add('hidden'); 
-        
-        surpriseBtn.onclick = () => { window.location.href = ZIEL_URL; };
-        
-    } 
-    else {
-        endTitleElement.textContent = 'Game Over';
-        endMessageElement.innerHTML = `Leider hast du die Socke für Eddi nicht bekommen.`; 
-        sockImageElement.classList.add('hidden'); 
-        
-        surpriseBtn.classList.add('hidden'); 
-        restartBtn.classList.remove('hidden'); 
-        
-        restartBtn.onclick = startGame;
     }
 
-    gameOverScreen.classList.remove('hidden');
-}
-
-function gameOver() {
-    endGame(false);
-}
-
-function gameWin() {
-    endGame(true);
-}
-
-// === START LOGIK (Unverändert, nutzt GAME_HEIGHT) ===
-
-function startGame() {
-    gameRunning = true;
-    score = 0;
-    obstacles = [];
-    frame = 0;
-    scoreMultiplier = 1; 
-    lives = 0; 
-    
-    gameSpeed = 6 * SCALING_FACTOR; 
-    speedIncreasePoint = 100; 
-    powerUp = null; 
-    activePowerUp = null;
-    magnetCharges = 0; 
-    
-    isFlying = false;
-    isSinking = false;
-    isInvulnerable = false;
-    flightStartTime = 0;
-    invulnStartTime = 0;
-    
-    gameWon = false; 
-    gameEndScore = 0;
-    
-    // Socken-Variablen zurücksetzen
-    winObject = null;
-    sockSpawned = false; 
-    
-    nextObstacleFrame = Math.floor(Math.random() * (MAX_GAP - MIN_GAP)) + MIN_GAP; 
-    
-    // Y-Position des Spielers auf den Boden der LOGISCHEN Höhe setzen
-    player.y = GAME_HEIGHT - player.height;
-    player.x = 50 * SCALING_FACTOR; 
-    
-    startScreen.classList.add('hidden'); 
-    gameOverScreen.classList.add('hidden');
-    
-    introScreen1.classList.add('hidden');
-    introScreen2.classList.add('hidden');
-
-    animate();
-}
-
-function animate() {
-    if (!gameRunning) return;
-
-    requestAnimationFrame(animate);
-    
-    // ======================================
-    // === HINTERGRUND ZEICHNEN MIT OFFSET ===
-    // 1. Hintergrund füllen (für den schwarzen Rand)
-    ctx.fillStyle = '#222'; 
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // 2. Hintergrundbild in der Mitte, ungestreckt zeichnen
-    ctx.drawImage(backgroundImg, 
-                  X_OFFSET_DRAWING, Y_OFFSET_DRAWING, 
-                  GAME_WIDTH, GAME_HEIGHT); 
-    // ======================================
-    
-    if (score >= speedIncreasePoint) {
-        gameSpeed += 0.5 * SCALING_FACTOR;
-        speedIncreasePoint += 100; 
-    }
-    
-    const currentSpeed = isFlying ? gameSpeed * FLIGHT_SPEED_MULTIPLIER : gameSpeed;
-
-    if (score === WIN_SCORE - 1 && score < WIN_SCORE) {
-        score = WIN_SCORE;
-    }
-    
-    // ... (FLUG- UND PHYSIK-LOGIK - Unverändert, nutzt GAME_HEIGHT) ...
-    if (!isFlying && !isSinking) {
-        player.dy += player.gravity;
-        player.y += player.dy;
-    }
-    
-    if (!isFlying && !isSinking) {
-        player.x = 50 * SCALING_FACTOR; 
-    }
-
-    if (player.y + player.height > GAME_HEIGHT) {
+    Promise.all([
+        new Promise(resolve => playerStandImg.onload = resolve),
+        new Promise(resolve => playerJumpImg.onload = resolve),
+        new Promise(resolve => playerFlightImg.onload = resolve), 
+        new Promise(resolve => obstacleImg.onload = resolve),
+        new Promise(resolve => multiplierImg.onload = resolve),
+        new Promise(resolve => lifeImg.onload = resolve),
+        new Promise(resolve => magnetImg.onload = resolve),
+        new Promise(resolve => flightImg.onload = resolve),
+        new Promise(resolve => winningSockImg.onload = resolve),
+        new Promise(resolve => backgroundImg.onload = resolve),
+        new Promise(resolve => pergamentImg.onload = resolve), 
+        new Promise(resolve => eddiImg.onload = resolve),      
+        new Promise(resolve => arrowRightImg.onload = resolve) 
+    ]).then(() => {
+        // Initiale Position setzen
         player.y = GAME_HEIGHT - player.height;
-        player.dy = 0;
-        player.grounded = true;
+        nextObstacleFrame = Math.floor(Math.random() * (MAX_GAP - MIN_GAP)) + MIN_GAP;
+        introScreen1.classList.remove('hidden');
+        introScreen2.classList.add('hidden');
+        startScreen.classList.add('hidden');
+        gameOverScreen.classList.add('hidden');
+    });
+
+    function handleInput(e) {
+        // RENTIER RUN OPTIMIERUNG: Verhindert Standard-Browser-Verhalten
+        if (e && e.type === 'touchstart') {
+             // e.preventDefault(); // Kann manchmal Scrolling verhindern, hier vorsichtig testen
+        }
+        
+        if (gameRunning && player.grounded) { 
+            player.dy = player.jumpPower;
+            player.grounded = false;
+        }
     }
 
-    if (isFlying) {
-        const elapsed = performance.now() - flightStartTime;
-        
-        if (player.y > FLIGHT_CENTER_Y) { 
-            player.y -= FLIGHT_RISE_SPEED;
-            if (player.y < FLIGHT_CENTER_Y) { 
-                player.y = FLIGHT_CENTER_Y;
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') { e.preventDefault(); handleInput(); }
+    });
+
+    // Touch-Eingabe
+    canvas.addEventListener('mousedown', handleInput);
+    // WICHTIG: passive: false erlaubt preventDefault falls nötig
+    canvas.addEventListener('touchstart', handleInput, {passive: false}); 
+
+    if (nextIntro1Btn) {
+        nextIntro1Btn.addEventListener('click', (e) => {
+            e.stopPropagation(); 
+            introScreen1.classList.add('hidden');
+            introScreen2.classList.remove('hidden');
+        });
+    }
+    if (nextIntro2Btn) {
+        nextIntro2Btn.addEventListener('click', (e) => {
+            e.stopPropagation(); 
+            introScreen2.classList.add('hidden');
+            startScreen.classList.remove('hidden'); 
+        });
+    }
+    if (startScreen) {
+        startScreen.addEventListener('click', startGame);
+        startScreen.addEventListener('touchstart', startGame); // Auch Touch auf Startscreen
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && !gameRunning && !startScreen.classList.contains('hidden')) {
+                startGame();
             }
+        });
+    }
+
+    function endGame(isWin) {
+        gameRunning = false;
+        gameWon = isWin;
+        
+        const endTitle = document.getElementById('gameOverTitle');
+        const endMsg = document.getElementById('gameOverMessage');
+        const sockImg = document.getElementById('winSockImage');
+        const surprise = document.getElementById('surpriseBtn'); 
+        const restart = document.getElementById('restartBtn');    
+        
+        if (isWin) {
+            endTitle.textContent = 'DU HAST ES GESCHAFFT!';
+            endMsg.innerHTML = `<span style="font-size: 1.5em; display: block; margin-bottom: 10px;">Eddi ist frei!</span>`;
+            sockImg.classList.remove('hidden'); 
+            surprise.classList.remove('hidden'); 
+            restart.classList.add('hidden'); 
+            surprise.onclick = () => { window.location.href = ZIEL_URL; };
         } else {
-            player.y = FLIGHT_CENTER_Y; 
+            endTitle.textContent = 'Game Over';
+            endMsg.innerHTML = `Leider nicht geschafft.`; 
+            sockImg.classList.add('hidden'); 
+            surprise.classList.add('hidden'); 
+            restart.classList.remove('hidden'); 
+            restart.onclick = startGame;
+            // Auch Touch auf Restart Button ermöglichen
+            restart.ontouchstart = (e) => { e.preventDefault(); startGame(); };
+        }
+        gameOverScreen.classList.remove('hidden');
+    }
+
+    function startGame() {
+        // Falls Größe geändert wurde, sicherstellen dass alles stimmt
+        resizeGame();
+        
+        gameRunning = true;
+        score = 0;
+        obstacles = [];
+        frame = 0;
+        scoreMultiplier = 1; 
+        lives = 0; 
+        gameSpeed = CONFIG.SPEED(); 
+        speedIncreasePoint = 100; 
+        powerUp = null; 
+        activePowerUp = null;
+        magnetCharges = 0; 
+        isFlying = false; isSinking = false; isInvulnerable = false;
+        
+        gameWon = false; 
+        sockSpawned = false; winObject = null;
+        
+        nextObstacleFrame = Math.floor(Math.random() * (MAX_GAP - MIN_GAP)) + MIN_GAP; 
+        
+        player.y = GAME_HEIGHT - player.height;
+        player.x = getScaled(50); 
+        
+        startScreen.classList.add('hidden'); 
+        gameOverScreen.classList.add('hidden');
+        introScreen1.classList.add('hidden');
+        introScreen2.classList.add('hidden');
+        animate();
+    }
+
+    function animate() {
+        if (!gameRunning) return;
+        requestAnimationFrame(animate);
+
+        // Hintergrund (Füllen & Zentrieren)
+        ctx.fillStyle = '#222'; 
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(backgroundImg, X_OFFSET_DRAWING, Y_OFFSET_DRAWING, GAME_WIDTH, GAME_HEIGHT); 
+        
+        if (score >= speedIncreasePoint) {
+            gameSpeed += getScaled(0.5);
+            speedIncreasePoint += 100; 
         }
         
-        if (player.x < FLIGHT_CENTER_X) {
-            player.x += FLIGHT_RISE_SPEED;
-            if (player.x > FLIGHT_CENTER_X) {
-                player.x = FLIGHT_CENTER_X;
-            }
-        } else {
-            player.x = FLIGHT_CENTER_X;
+        const currentSpeed = isFlying ? gameSpeed * FLIGHT.MULTIPLIER : gameSpeed;
+        if (score === WIN_SCORE - 1 && score < WIN_SCORE) score = WIN_SCORE;
+        
+        // --- PHYSIK ---
+        if (!isFlying && !isSinking) {
+            player.dy += player.gravity;
+            player.y += player.dy;
+            player.x = getScaled(50); 
         }
 
-        if (elapsed >= FLIGHT_DURATION) {
-            isFlying = false;
-            isSinking = true; 
-        }
-        
-        player.grounded = false;
-        player.dy = 0; 
-    } 
-    else if (isSinking) {
-        player.y += FLIGHT_SINK_SPEED; 
-        
-        const targetX = 50 * SCALING_FACTOR; 
-        const easingFactor = FLIGHT_HORIZONTAL_EASING;
-        
-        if (player.x !== targetX) {
-            const dx = targetX - player.x; 
-            player.x += dx * easingFactor; 
-            
-            if (Math.abs(player.x - targetX) < 0.5 * SCALING_FACTOR) { 
-                player.x = targetX;
-            }
-        }
-        
-        if (player.y + player.height >= GAME_HEIGHT) { 
+        if (player.y + player.height > GAME_HEIGHT) {
             player.y = GAME_HEIGHT - player.height;
-            isSinking = false; 
-            
-            player.x = 50 * SCALING_FACTOR; 
-            
-            isInvulnerable = true;
-            invulnStartTime = performance.now();
+            player.dy = 0;
+            player.grounded = true;
         }
-    } 
-    else if (isInvulnerable) {
-        const elapsedInvuln = performance.now() - invulnStartTime;
-        if (elapsedInvuln >= POST_FLIGHT_INVULN_DURATION) {
-            isInvulnerable = false; 
-        }
-        if (player.x !== 50 * SCALING_FACTOR) {
-            player.x = 50 * SCALING_FACTOR; 
-        }
-    }
-    // ENDE FLUG- UND PHYSIK-LOGIK
 
-    // SPIELER ZEICHNEN LOGIK
-    let imageToDraw;
-    let drawWidth = player.width;    
-    let drawHeight = player.height;  
-    let drawY = player.y;            
-
-    if (isFlying || isSinking) { 
-        imageToDraw = playerFlightImg;
-        drawWidth = FLIGHT_IMAGE_WIDTH; 
-        drawHeight = FLIGHT_IMAGE_HEIGHT;
-        drawY = player.y - (5 * SCALING_FACTOR); 
-    } 
-    else if (player.grounded) { 
-        imageToDraw = playerStandImg;
-    } 
-    else { 
-        imageToDraw = playerJumpImg; 
-        
-        drawHeight = player.height + JUMP_HEIGHT_BOOST; 
-        drawY = player.y - JUMP_HEIGHT_BOOST; 
-    }
-    
-    // KRITISCH: Wende den X_OFFSET_DRAWING und Y_OFFSET_DRAWING an
-    ctx.drawImage(
-        imageToDraw, 
-        player.x + X_OFFSET_DRAWING, 
-        drawY + Y_OFFSET_DRAWING, 
-        drawWidth, 
-        drawHeight 
-    );
-    
-    ctx.globalAlpha = 1.0; 
-
-    // SPWANING & MAGNET LOGIK
-    frame++;
-
-    // ... (Power-Up Spawning Logik unverändert) ...
-    
-    // Power-Up Bewegung und Zeichnen & Kollision
-    if (powerUp) {
-        
-        const isMagnetActive = activePowerUp === 'MAGNET' && magnetCharges > 0; 
-        
-        if (isMagnetActive) { 
+        // Fluglogik
+        if (isFlying) {
+            const elapsed = performance.now() - flightStartTime;
+            let targetY = FLIGHT.CENTER_Y();
+            let targetX = FLIGHT.CENTER_X();
             
-            const dx = (powerUp.x + powerUp.width / 2) - (player.x + player.width / 2);
-            const dy = (powerUp.y + powerUp.height / 2) - (player.y + player.height / 2);
-            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (player.y > targetY) player.y = Math.max(targetY, player.y - FLIGHT.RISE());
+            else player.y = targetY;
             
-            const magnetPullSpeed = currentSpeed * 4; 
+            if (player.x < targetX) player.x = Math.min(targetX, player.x + FLIGHT.RISE());
+            else player.x = targetX;
 
-            if (distance < MAGNET_RANGE) {
-                powerUp.x -= (dx / distance) * magnetPullSpeed; 
-                powerUp.y -= (dy / distance) * magnetPullSpeed;
+            if (elapsed >= FLIGHT.DURATION) { isFlying = false; isSinking = true; }
+            player.grounded = false; player.dy = 0; 
+        } else if (isSinking) {
+            player.y += FLIGHT.SINK(); 
+            let targetX = getScaled(50);
+            if (Math.abs(player.x - targetX) > 1) {
+                player.x += (targetX - player.x) * FLIGHT.EASING;
             }
+            if (player.y + player.height >= GAME_HEIGHT) { 
+                player.y = GAME_HEIGHT - player.height;
+                isSinking = false; player.x = targetX;
+                isInvulnerable = true; invulnStartTime = performance.now();
+            }
+        } else if (isInvulnerable) {
+            if (performance.now() - invulnStartTime >= FLIGHT.INVULN) isInvulnerable = false; 
         }
-        
-        powerUp.x -= currentSpeed;
-        
-        let imgToDraw;
-        if (powerUp.type === 'MULTIPLIER') imgToDraw = multiplierImg;
-        else if (powerUp.type === 'MAGNET') imgToDraw = magnetImg;
-        else if (powerUp.type === 'LIFE') imgToDraw = lifeImg;
-        else if (powerUp.type === 'FLIGHT') imgToDraw = flightImg; 
 
-        // KRITISCH: Wende den X_OFFSET_DRAWING und Y_OFFSET_DRAWING an
-        ctx.drawImage(imgToDraw, 
-                      powerUp.x + X_OFFSET_DRAWING, 
-                      powerUp.y + Y_OFFSET_DRAWING, 
-                      powerUp.width, powerUp.height);
+        // ZEICHNEN SPIELER
+        let imgToDraw = player.grounded ? playerStandImg : playerJumpImg;
+        let drawW = player.width, drawH = player.height, drawY = player.y;
         
-        if (
-            player.x < powerUp.x + powerUp.width &&
-            player.x + player.width > powerUp.x &&
-            player.y < powerUp.y + powerUp.height &&
-            player.y + player.height > powerUp.y
-        ) {
-            if (isMagnetActive && powerUp.type !== 'MAGNET') {
-                magnetCharges--;
-                if (magnetCharges <= 0) {
-                    activePowerUp = null; 
+        if (isFlying || isSinking) { 
+            imgToDraw = playerFlightImg;
+            drawW = FLIGHT.IMG_W(); drawH = FLIGHT.IMG_H();
+            drawY = player.y - getScaled(5);
+        } else if (!player.grounded) {
+             drawH += CONFIG.Y_OFFSET() * 4.5; // Jump boost visual
+             drawY -= CONFIG.Y_OFFSET() * 4.5;
+        }
+
+        ctx.drawImage(imgToDraw, player.x + X_OFFSET_DRAWING, drawY + Y_OFFSET_DRAWING, drawW, drawH);
+        
+        frame++;
+
+        // POWERUPS
+        if (score < WIN_SCORE - 1 && powerUp === null && frame % POWERUP_SPAWN_INTERVAL === 0 && Math.random() < POWERUP_CHANCE) {
+            let types = ['MULTIPLIER', 'MAGNET', 'LIFE', 'FLIGHT'];
+            let type = types[Math.floor(Math.random() * types.length)];
+            
+            if (type === 'MAGNET' && activePowerUp === 'MAGNET') type = 'MULTIPLIER';
+            if (type === 'LIFE' && lives >= 1) type = 'MULTIPLIER';
+
+            let w, h;
+            if (type === 'MULTIPLIER') { w = CONFIG.MULTIPLIER_WIDTH(); h = CONFIG.MULTIPLIER_HEIGHT(); }
+            else if (type === 'MAGNET') { w = CONFIG.MAGNET_WIDTH(); h = CONFIG.MAGNET_HEIGHT(); }
+            else if (type === 'LIFE') { w = CONFIG.LIFEUP_WIDTH(); h = CONFIG.LIFEUP_HEIGHT(); }
+            else { w = CONFIG.FLIGHT_WIDTH(); h = CONFIG.FLIGHT_HEIGHT(); }
+
+            powerUp = {
+                x: GAME_WIDTH,
+                y: GAME_HEIGHT - CONFIG.OBSTACLE_H() - (Math.random() * 20) - h,
+                width: w, height: h, type: type
+            };
+        }
+
+        if (powerUp) {
+            if (activePowerUp === 'MAGNET' && magnetCharges > 0) {
+                let dx = (powerUp.x + powerUp.width/2) - (player.x + player.width/2);
+                let dy = (powerUp.y + powerUp.height/2) - (player.y + player.height/2);
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < CONFIG.MAGNET_RANGE()) {
+                    powerUp.x -= (dx/dist) * currentSpeed * 4;
+                    powerUp.y -= (dy/dist) * currentSpeed * 4;
                 }
             }
+            powerUp.x -= currentSpeed;
             
-            activatePowerUp(powerUp.type);
-            powerUp = null; 
+            let pImg;
+            if (powerUp.type === 'MULTIPLIER') pImg = multiplierImg;
+            else if (powerUp.type === 'MAGNET') pImg = magnetImg;
+            else if (powerUp.type === 'LIFE') pImg = lifeImg;
+            else pImg = flightImg;
+
+            ctx.drawImage(pImg, powerUp.x + X_OFFSET_DRAWING, powerUp.y + Y_OFFSET_DRAWING, powerUp.width, powerUp.height);
+
+            // Kollision Powerup (vereinfacht)
+            if (player.x < powerUp.x + powerUp.width && player.x + player.width > powerUp.x &&
+                player.y < powerUp.y + powerUp.height && player.y + player.height > powerUp.y) {
+                    if (activePowerUp === 'MAGNET' && powerUp.type !== 'MAGNET') {
+                        magnetCharges--; if(magnetCharges<=0) activePowerUp = null;
+                    }
+                    activatePowerUp(powerUp.type);
+                    powerUp = null;
+            } else if (powerUp.x + powerUp.width < 0) powerUp = null;
         }
-        
-        if (powerUp && powerUp.x + powerUp.width < 0) {
-            powerUp = null;
+
+        // HINDERNISSE
+        let gapScale = isFlying ? FLIGHT.MULTIPLIER : 1;
+        if (score < WIN_SCORE - 1 && frame >= nextObstacleFrame) {
+             obstacles.push({
+                 x: GAME_WIDTH,
+                 y: GAME_HEIGHT - CONFIG.OBSTACLE_H() + CONFIG.Y_OFFSET(),
+                 width: CONFIG.OBSTACLE_W(), height: CONFIG.OBSTACLE_H()
+             });
+             nextObstacleFrame = frame + Math.floor(Math.random() * ((MAX_GAP/gapScale) - (MIN_GAP/gapScale) + 1)) + (MIN_GAP/gapScale);
         }
-    }
 
-    // HINDERNIS-LOGIK (Zeichnen und Kollision)
-    const gapScaling = isFlying ? FLIGHT_SPEED_MULTIPLIER : 1; 
-    
-    const scaledMinGap = Math.floor(MIN_GAP / gapScaling);
-    const scaledMaxGap = Math.floor(MAX_GAP / gapScaling);
-    
-    if (score < WIN_SCORE - 1 && frame >= nextObstacleFrame) { 
-        obstacles.push({
-            x: GAME_WIDTH, // Muss GAME_WIDTH nutzen
-            y: (GAME_HEIGHT - OBSTACLE_HEIGHT) + Y_OFFSET, 
-            width: OBSTACLE_WIDTH,
-            height: OBSTACLE_HEIGHT
-        });
-        
-        nextObstacleFrame = frame + Math.floor(Math.random() * (scaledMaxGap - scaledMinGap + 1)) + scaledMinGap;
-    }
-    
-    for (let i = 0; i < obstacles.length; i++) {
-        let obs = obstacles[i];
-        obs.x -= currentSpeed;
+        for (let i = 0; i < obstacles.length; i++) {
+            let obs = obstacles[i];
+            obs.x -= currentSpeed;
+            ctx.drawImage(obstacleImg, obs.x + X_OFFSET_DRAWING, obs.y + Y_OFFSET_DRAWING, obs.width, obs.height);
 
-        // KRITISCH: Wende den X_OFFSET_DRAWING und Y_OFFSET_DRAWING an
-        ctx.drawImage(obstacleImg, 
-                      obs.x + X_OFFSET_DRAWING, 
-                      obs.y + Y_OFFSET_DRAWING, 
-                      obs.width, obs.height);
+            // Hitbox
+            let hbW = obs.width * 0.6, hbX = obs.x + obs.width * 0.2;
+            let hbH = obs.height * 0.8, hbY = obs.y + obs.height * 0.2;
 
-        // Kollisions-Hitbox Berechnung skaliert
-        const hitboxWidth = obs.width * (1 - HITBOX_WIDTH_REDUCTION); 
-        const hitboxX = obs.x + (obs.width * (HITBOX_WIDTH_REDUCTION / 2)); 
-        const hitboxHeight = obs.height * (1 - HITBOX_HEIGHT_TOP_OFFSET);
-        const hitboxY = obs.y + (obs.height * HITBOX_HEIGHT_TOP_OFFSET); 
-
-        if (
-            player.x < hitboxX + hitboxWidth && player.x + player.width > hitboxX &&
-            player.y < hitboxY + hitboxHeight && player.y + player.height > hitboxY
-        ) {
-            if (isFlying || isSinking || isInvulnerable) { 
-                obstacles.splice(i, 1); 
+            if (player.x < hbX + hbW && player.x + player.width > hbX &&
+                player.y < hbY + hbH && player.y + player.height > hbY) {
+                    if (!isFlying && !isSinking && !isInvulnerable) {
+                        if (lives > 0) { lives--; obstacles.splice(i, 1); i--; continue; }
+                        else { gameOver(); return; }
+                    }
+            }
+            if (obs.x + obs.width < 0) {
+                obstacles.splice(i, 1);
+                if (score < WIN_SCORE - 1) score += 1 * scoreMultiplier;
                 i--;
-                continue; 
-            }
-            
-            if (lives > 0) {
-                lives--; 
-                obstacles.splice(i, 1); 
-                i--;
-                continue; 
-            } else {
-                gameOver(); 
-                return; 
             }
         }
-        
-        if (obs.x + obs.width < 0) {
-            obstacles.splice(i, 1);
-            
-            if (score < WIN_SCORE - 1) {
-                score += 1 * scoreMultiplier; 
+
+        // GEWINN
+        if (score >= WIN_SCORE && !sockSpawned && !winObject) {
+            sockSpawned = true;
+            winObject = { x: GAME_WIDTH, y: GAME_HEIGHT - CONFIG.SOCK_H() - getScaled(30), width: CONFIG.SOCK_W(), height: CONFIG.SOCK_H() };
+        }
+        if (winObject) {
+            winObject.x -= currentSpeed;
+            ctx.drawImage(winningSockImg, winObject.x + X_OFFSET_DRAWING, winObject.y + Y_OFFSET_DRAWING, winObject.width, winObject.height);
+            if (player.x < winObject.x + winObject.width && player.x + player.width > winObject.x &&
+                player.y < winObject.y + winObject.height && player.y + player.height > winObject.y) {
+                gameWin(); return;
             }
-            
-            i--;
-        }
-    }
-    
-    // SOCKE-GEWINN-LOGIK
-    
-    // Spawnen der Socke (passiert nur einmal, wenn der Score erreicht ist)
-    if (score >= WIN_SCORE && !sockSpawned && winObject === null) {
-        sockSpawned = true; 
-        const SOCK_WIDTH = 700 * SCALING_FACTOR; 
-        const SOCK_HEIGHT = 480 * SCALING_FACTOR; 
-        
-        winObject = {
-            x: GAME_WIDTH, // Muss GAME_WIDTH nutzen
-            y: GAME_HEIGHT - SOCK_HEIGHT - (30 * SCALING_FACTOR), 
-            width: SOCK_WIDTH,
-            height: SOCK_HEIGHT,
-        };
-    }
-
-    if (winObject) {
-        winObject.x -= currentSpeed; 
-        
-        // KRITISCH: Wende den X_OFFSET_DRAWING und Y_OFFSET_DRAWING an
-        ctx.drawImage(winningSockImg, 
-                      winObject.x + X_OFFSET_DRAWING, 
-                      winObject.y + Y_OFFSET_DRAWING, 
-                      winObject.width, winObject.height);
-        
-        if (
-            player.x < winObject.x + winObject.width &&
-            player.x + player.width > winObject.x &&
-            player.y < winObject.y + winObject.height &&
-            player.y + player.height > winObject.y
-        ) {
-            gameWin(); 
-            return; 
         }
 
-        if (winObject.x + winObject.width < 0) {
-            winObject = null;
+        // HUD
+        ctx.font = `${Math.round(24 * SCALING_FACTOR)}px Arial`; ctx.fillStyle = (scoreMultiplier>1)?'#F33':'#3F3';
+        ctx.fillText(`Score: ${score}${scoreMultiplier>1?' (x'+scoreMultiplier+')':''}`, 10*SCALING_FACTOR+X_OFFSET_DRAWING, 30*SCALING_FACTOR+Y_OFFSET_DRAWING);
+        
+        if (lives > 0) ctx.drawImage(lifeImg, 10*SCALING_FACTOR+X_OFFSET_DRAWING, 50*SCALING_FACTOR+Y_OFFSET_DRAWING, getScaled(60), getScaled(60));
+        
+        if (activePowerUp === 'MAGNET') {
+            let iconX = GAME_WIDTH - CONFIG.MAGNET_ICON_W() - getScaled(20);
+            ctx.drawImage(magnetImg, iconX+X_OFFSET_DRAWING, getScaled(15)+Y_OFFSET_DRAWING, CONFIG.MAGNET_ICON_W(), CONFIG.MAGNET_ICON_H());
+            ctx.fillStyle = '#FFD700'; ctx.font = `${Math.round(40 * SCALING_FACTOR)}px Arial`;
+            ctx.fillText(magnetCharges, iconX+CONFIG.MAGNET_ICON_W()+getScaled(-10)+X_OFFSET_DRAWING, getScaled(60)+Y_OFFSET_DRAWING);
         }
     }
-    
-    // SCOREBOARD ANZEIGEN (HUD)
-    ctx.font = `${Math.round(24 * SCALING_FACTOR)}px Arial, sans-serif`; 
-    ctx.shadowColor = 'white'; 
-    ctx.shadowBlur = 12 * SCALING_FACTOR;      
-
-    ctx.fillStyle = (scoreMultiplier > 1) ? '#FF3333' : '#33FF33'; 
-    
-    let scoreText = 'Score: ' + score;
-    if (scoreMultiplier > 1) {
-        scoreText += ' (x' + scoreMultiplier + ')';
-    }
-    // KRITISCH: Wende den X_OFFSET_DRAWING und Y_OFFSET_DRAWING an
-    ctx.fillText(scoreText, 
-                 10 * SCALING_FACTOR + X_OFFSET_DRAWING, 
-                 30 * SCALING_FACTOR + Y_OFFSET_DRAWING);
-    
-    ctx.shadowBlur = 0; 
-    if (lives > 0) { 
-        const heartSize = 60 * SCALING_FACTOR; 
-        // KRITISCH: Wende den X_OFFSET_DRAWING und Y_OFFSET_DRAWING an
-        ctx.drawImage(lifeImg, 
-                      10 * SCALING_FACTOR + X_OFFSET_DRAWING, 
-                      50 * SCALING_FACTOR + Y_OFFSET_DRAWING, 
-                      heartSize, heartSize); 
-    }
-    
-    if (activePowerUp === 'MAGNET') {
-        
-        const ZAHL_Y_KORREKTUR = 15 * SCALING_FACTOR; 
-        
-        // Berechnet die X-Position basierend auf der neuen Breite
-        const iconX = GAME_WIDTH - MAGNET_ICON_WIDTH - MAGNET_ICON_PADDING; 
-        const iconY = MAGNET_DISPLAY_Y - (MAGNET_ICON_HEIGHT / 2); 
-        
-        // KRITISCH: Wende den X_OFFSET_DRAWING und Y_OFFSET_DRAWING an
-        ctx.drawImage(magnetImg, 
-                      iconX + X_OFFSET_DRAWING, 
-                      iconY + Y_OFFSET_DRAWING, 
-                      MAGNET_ICON_WIDTH, MAGNET_ICON_HEIGHT); 
-
-        ctx.font = `${Math.round(40 * SCALING_FACTOR)}px Arial, sans-serif`; 
-        ctx.shadowBlur = 12 * SCALING_FACTOR; 
-        ctx.shadowColor = 'white'; 
-        
-        const textX = iconX + MAGNET_ICON_WIDTH + MAGNET_TEXT_OFFSET_X;
-        ctx.fillStyle = '#FFD700'; 
-        ctx.textAlign = 'left'; 
-        const textY = MAGNET_DISPLAY_Y + ZAHL_Y_KORREKTUR + Y_OFFSET_DRAWING;
-        
-        // KRITISCH: Wende den X_OFFSET_DRAWING an
-        ctx.fillText(magnetCharges, 
-                     textX + X_OFFSET_DRAWING, 
-                     textY);
-        
-        ctx.font = `${Math.round(24 * SCALING_FACTOR)}px Arial, sans-serif`; 
-    }
-    
-    ctx.shadowBlur = 0; 
-    ctx.shadowColor = 'transparent';
-
-} 
 });
-
