@@ -3,43 +3,38 @@
 <head>
     <meta charset="UTF-8">
     
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
     <title>Eddi der Haushund</title>
     
     <style>
         body {
-            /* KRITISCHE ANPASSUNG: Füllt 100% des Viewports */
             width: 100vw;
             height: 100vh;
             margin: 0;
             padding: 0;
-            overflow: hidden; /* Verhindert Scrollbalken */
+            overflow: hidden; 
             background-color: #222; 
             font-family: Arial, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
+            
+            /* RENTIER RUN OPTIMIERUNG: Wichtigste Zeile für Mobile Games! */
+            touch-action: none; /* Verhindert Scrollen, Zoom, Refresh durch Wischen */
+            -webkit-user-select: none; /* Verhindert Text-Markieren auf iPhone */
+            user-select: none;
         }
 
         #gameCanvas {
-            border: none; /* Rand entfernt, um den Fullscreen-Effekt zu gewährleisten */
-            
-            /* KRITISCHE ANPASSUNG: Zwingt Canvas auf volle Größe */
+            border: none;
             width: 100vw; 
             height: 100vh; 
-            
             display: block;
             background-color: #555;
-            
-            /* Alle alten Größeneinschränkungen entfernen */
-            max-width: none !important; 
-            max-height: none !important; 
-            height: 100vh; 
         }
 
-        /* Allgemeine Overlay-Stile (bleiben relativ zur neuen Canvas-Größe zentriert) */
+        /* Overlay-Stile */
         .overlay {
             position: absolute;
             top: 50%;
@@ -47,66 +42,52 @@
             transform: translate(-50%, -50%);
             background: rgba(0, 0, 0, 0.9);
             color: white;
-            padding: 30px 50px;
+            padding: 20px;
             border-radius: 10px;
             text-align: center;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
             z-index: 100;
-            
-            /* Begrenzt die maximale Breite des Fensters selbst */
-            max-width: 500px; 
+            max-width: 90%; 
             width: 90%; 
+            box-sizing: border-box; /* Verhindert Padding-Probleme */
         }
 
         .hidden {
             display: none !important;
         }
 
-        /* Button-Styles */
         button {
-            padding: 12px 25px;
+            padding: 15px 30px; /* Größere Buttons für Touch */
             font-size: 1.2em;
             cursor: pointer;
             border: none;
             border-radius: 5px;
             margin: 10px;
             transition: background-color 0.3s;
+            touch-action: manipulation; /* Verbessert Klick-Reaktion */
         }
         
-        #restartBtn {
-            background-color: #4CAF50; /* Grün */
-            color: white;
-        }
+        #restartBtn { background-color: #4CAF50; color: white; }
+        #surpriseBtn { background-color: #FFC107; color: #333; }
+        
+        button:hover, button:active { opacity: 0.8; transform: scale(0.98); }
 
-        #surpriseBtn {
-            background-color: #FFC107; /* Gelb/Orange */
-            color: #333;
-        }
-        
-        button:hover {
-            opacity: 0.8;
-        }
-
-        /* Endscreen spezifisch */
-        #gameOverScreen h1 {
-            margin-top: 0;
-        }
-        
+        /* Endscreen Bild-Anpassung */
         #winSockImage {
-            width: 400px !important;    
+            max-width: 100% !important; 
             height: auto !important;
-            max-width: 400px !important; 
             margin: 0 auto 20px auto !important; 
         }
         
         .button-container {
             display: flex;
             justify-content: center;
-            gap: 20px;
+            flex-wrap: wrap; /* Falls Bildschirm sehr schmal */
+            gap: 15px;
             margin-top: 20px;
         }
 
-        /* ANGEPASSTE STILE FÜR INTRO-SCREENS UND PERGAMENT */
+        /* Pergament-Stile */
         .pergament-overlay {
             background-image: url('pergament.jpg'); 
             background-color: #F8E8C0; 
@@ -114,216 +95,77 @@
             background-position: center;
             color: #2C1E00; 
             font-family: 'Georgia', serif; 
-            padding: 40px 60px; 
-            border-radius: 5px; 
-            max-width: 600px; 
-            width: 90%;
             box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.5); 
         }
         
-        .pergament-overlay h2 {
-            font-size: 2.2em;
-            margin-top: 0;
-            margin-bottom: 20px;
-        }
-
-        .pergament-overlay p {
-            font-size: 1.2em;
-            line-height: 1.5;
-            margin-bottom: 20px;
-        }
-        
-        /* Stil für den hervorgehobenen Aufruf (call-to-action) */
-        .pergament-overlay p.call-to-action {
-            font-size: 1.8em; 
-            font-weight: bold; 
-            margin-top: 10px;
-            margin-bottom: 25px; 
-            color: #2C1E00; 
-        }
-
-        .pergament-overlay img.eddi-img {
-            max-width: 180px; 
-            height: auto;
-            border-radius: 10px; 
-            margin-bottom: 15px;
-            border: 2px solid #5C3A10; 
-        }
+        .pergament-overlay h2 { font-size: 1.8em; margin-top: 0; margin-bottom: 15px; }
+        .pergament-overlay p { font-size: 1.1em; line-height: 1.4; margin-bottom: 15px; }
+        .pergament-overlay p.call-to-action { font-size: 1.5em; font-weight: bold; margin-top: 10px; color: #2C1E00; }
+        .pergament-overlay img.eddi-img { max-width: 150px; height: auto; border-radius: 10px; border: 2px solid #5C3A10; margin-bottom: 10px; }
 
         .legend-item {
             display: flex;
             align-items: center;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             text-align: left;
             margin-left: auto;
             margin-right: auto;
-            max-width: 300px; 
+            max-width: 100%; 
         }
 
-        /* NEU: Erhöhte Spezifität für ALLE Icons auf dem Pergament */
-        .pergament-overlay .legend-item img {
-            width: 50px; 
-            height: 50px;
-            margin-right: 15px;
-            flex-shrink: 0; 
-        }
-        
-        /* KORREKTUR: Die Klasse für die breiteren Icons */
-        .pergament-overlay .legend-icon-wide {
-            width: 80px !important; 
-            height: auto !important; 
-        }
-        
-        /* KORREKTUR FÜR AUSRICHTUNG: Das Herz-Icon wird nach links verschoben, um bündig zu sein. */
-        .pergament-overlay .legend-item img:not(.legend-icon-wide) {
-            margin-left: 15px; 
-        }
-
-        .legend-item p {
-            margin: 0;
-            font-size: 1em;
-            color: #2C1E00; 
-        }
+        .pergament-overlay .legend-item img { width: 40px; height: 40px; margin-right: 10px; flex-shrink: 0; }
+        .pergament-overlay .legend-icon-wide { width: 60px !important; height: auto !important; }
+        .pergament-overlay .legend-item img:not(.legend-icon-wide) { margin-left: 10px; }
 
         .arrow-button {
             position: absolute;
-            bottom: 20px;
-            right: 20px;
+            bottom: 15px;
+            right: 15px;
             background: none;
             border: none;
-            cursor: pointer;
             padding: 0;
-            transition: transform 0.2s ease-in-out;
             z-index: 110; 
         }
-
-        .arrow-button img {
-            width: 60px; 
-            height: auto;
-            display: block;
-        }
-
-        .arrow-button:hover {
-            transform: scale(1.1);
-        }
-
-        /* ================================================= */
-        /* === MEDIA QUERY FÜR MOBILGERÄTE (MAX 850PX) === */
-        /* ================================================= */
-
-        @media (max-width: 850px) {
-            
-            /* Auf Mobilgeräten wird die Canvas-Breite bereits auf 100vw gesetzt, 
-               daher müssen hier nur die Overlays angepasst werden. */
-            
-            /* Overlays sollten auf kleinen Geräten besser skalieren */
-            .overlay, .pergament-overlay {
-                padding: 15px 25px;
-                max-width: 95%;
-            }
-
-            .pergament-overlay h2 {
-                font-size: 1.5em;
-            }
-
-            .pergament-overlay p {
-                font-size: 1em;
-            }
-            
-            .pergament-overlay p.call-to-action {
-                font-size: 1.4em;
-            }
-            
-            /* Button-Größe auf Mobilgeräten anpassen */
-            button {
-                padding: 8px 15px;
-                font-size: 1em;
-            }
-            
-            /* Pfeil-Buttons für bessere Touch-Bedienung */
-            .arrow-button img {
-                width: 40px; 
-            }
-            
-            /* Legend-Icons verkleinern, um Platz zu sparen */
-            .pergament-overlay .legend-item img {
-                width: 40px; 
-                height: 40px;
-            }
-            
-            .pergament-overlay .legend-icon-wide {
-                width: 60px !important; 
-            }
-            
-            #winSockImage {
-                max-width: 90% !important;
-                width: auto !important; 
-            }
-        }
-
+        .arrow-button img { width: 50px; height: auto; display: block; }
     </style>
 </head>
 <body>
 
     <canvas id="gameCanvas"></canvas>
 
-    
-<div id="introScreen1" class="overlay pergament-overlay">
+    <div id="introScreen1" class="overlay pergament-overlay">
         <h2>Das ist Eddi der Haushund</h2>
         <img src="eddi_hund.png" alt="Eddi der Haushund" class="eddi-img">
-        <p> Er wünscht sich zu Weihnachten eine Socke, damit er frei ist.</p>
+        <p>Er wünscht sich zu Weihnachten eine Socke, damit er frei ist.</p>
         <p class="call-to-action">Hilf ihm dabei!</p> 
         <button id="nextIntro1" class="arrow-button"><img src="arrow_right.png" alt="Weiter"></button>
     </div>
 
-    
-<div id="introScreen2" class="overlay pergament-overlay hidden">
+    <div id="introScreen2" class="overlay pergament-overlay hidden">
         <h2>Die Legende der Power-Ups</h2>
-        <p>Sammle diese magischen Gegenstände, um Eddi zu helfen:</p>
-        
-        <div class="legend-item">
-            <img src="multiplier.png" alt="Multiplikator" class="legend-icon-wide"> 
-            <p>Verdoppelt deine Punktzahl (kann mehrfach gesammelt werden).</p>
-        </div>
-        <div class="legend-item">
-            <img src="magnet.png" alt="Magnet" class="legend-icon-wide"> 
-            <p>Zieht Power-Ups magisch an (3 Ladungen).</p>
-        </div>
-        <div class="legend-item">
-            <img src="life.png" alt="Leben"> 
-            <p style="padding-left: 15px;">Schenkt Eddi ein Extraleben (max. 1).</p> </div>
-        <div class="legend-item">
-            <img src="flight_powerup.png" alt="Flug" class="legend-icon-wide"> 
-            <p>Eddi fliegt für kurze Zeit und ist unbesiegbar!</p>
-        </div>
-        
-<div class="legend-item">
-            <img src="obstacle.png" alt="Hindernis" class="legend-icon-wide"> 
-            <p>Vermeide diese Hindernisse, sonst verlierst du!</p>
-        </div>
-
+        <div class="legend-item"><img src="multiplier.png" alt="Multiplikator" class="legend-icon-wide"><p>Verdoppelt deine Punktzahl.</p></div>
+        <div class="legend-item"><img src="magnet.png" alt="Magnet" class="legend-icon-wide"><p>Zieht Power-Ups an.</p></div>
+        <div class="legend-item"><img src="life.png" alt="Leben"><p style="padding-left: 10px;">Schenkt ein Extraleben.</p></div>
+        <div class="legend-item"><img src="flight_powerup.png" alt="Flug" class="legend-icon-wide"><p>Eddi fliegt!</p></div>
+        <div class="legend-item"><img src="obstacle.png" alt="Hindernis" class="legend-icon-wide"><p>Ausweichen!</p></div>
         <button id="nextIntro2" class="arrow-button"><img src="arrow_right.png" alt="Start"></button>
     </div>
 
-    
-<div id="startScreen" class="overlay hidden">
+    <div id="startScreen" class="overlay hidden">
         <h1>Die Sockenjagd</h1>
-        <p>Drücke die Leertaste oder klicke, um zu starten!</p>
+        <p>Tippe auf den Bildschirm zum Starten!</p>
     </div>
 
     <div id="gameOverScreen" class="overlay hidden">
         <h1 id="gameOverTitle">Game Over</h1>
         <p id="gameOverMessage">Du hast Punkte erreicht.</p>
         <img id="winSockImage" src="sock_image.png" alt="Gewonnene Socke" class="hidden">
-
         <div class="button-container">
             <button id="restartBtn">Neu versuchen</button>
-            
             <button id="surpriseBtn">Zum Preis</button>
         </div>
     </div>
 
     <script src="script.js"></script>
-
 </body>
 </html>
