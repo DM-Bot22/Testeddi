@@ -14,16 +14,20 @@ const ctx = canvas.getContext('2d');
 // ======================================================
 // === HOCHKANT-GRÖßENBASIS (Dynamische Skalierung) ===
 // ======================================================
-// NEUE Referenzbreite für ein etwas breiteres Hochkant-Format
 const BASE_WIDTH = 500; 
-// Basis-Höhe (für das Verhältnis 5:8, also 500:800)
 const BASE_HEIGHT = 800; 
 const BASE_RATIO = BASE_HEIGHT / BASE_WIDTH; 
 
-// ALLE dynamischen Werte müssen jetzt 'let' sein, damit sie in resizeGame() neu berechnet werden können
+// === NEUE KONSTANTE FÜR MOBILE-NAVIGATIONSLEISTE (SAMSUNG-FIX) ===
+// Definiert, wie weit der Boden des Spiels vom unteren Rand verschoben wird (in Basis-Pixeln)
+const MOBILE_NAV_PADDING_BASE = 30; 
+let MOBILE_NAV_PADDING = 0; // Wird in resizeGame() skaliert
+
+// ALLE dynamischen Werte müssen jetzt 'let' sein
 let SCALING_FACTOR;
 let GAME_WIDTH;
 let GAME_HEIGHT;
+let GROUND_Y; // Definiert die Y-Koordinate des Bodens, korrigiert durch Padding
 
 // --- POWER-UP KONFIGURATION (JETZT ALLE 'let' FÜR RESIZE) ---
 const POWERUP_SPAWN_SCORE = 1;      
@@ -128,92 +132,6 @@ const nextIntro2Btn = document.getElementById('nextIntro2');
 
 
 // ======================================================
-// === HAUPT-SKALIERUNGSFUNKTION (VOLL-RESPONSIV) ===
-// ======================================================
-function resizeGame() {
-    // 1. Setze Canvas auf die volle Größe des Browser-Fensters (Rentier-Run Logik)
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    GAME_WIDTH = canvas.width;
-    GAME_HEIGHT = canvas.height; 
-
-    // 2. Bestimme den Skalierungsfaktor. 
-    // Wir nutzen die Breite, damit die Elemente proportional zum Hochkant-Spiel bleiben.
-    // Wenn die Höhe viel größer ist, füllen wir nicht die gesamte Höhe mit Spielinhalten aus.
-    // Wir zentrieren das Spiel dann vertikal, wenn das Verhältnis zu "hoch" ist.
-    SCALING_FACTOR = GAME_WIDTH / BASE_WIDTH;
-    
-    // Fallback: Wenn das Verhältnis zu breit ist (Querformat), verwenden wir die Höhe zur Skalierung
-    // Dies stellt sicher, dass das Spiel immer sichtbar bleibt
-    if (GAME_HEIGHT / GAME_WIDTH < BASE_RATIO) {
-        SCALING_FACTOR = GAME_HEIGHT / BASE_HEIGHT;
-    }
-
-    // 3. BERECHNUNG ALLER ABHÄNGIGEN GRÖSSEN (Basiswerte * SCALING_FACTOR)
-    
-    // Power-Up Größen (wieder 'let' verwenden, da die Funktion alle Werte neu setzen muss)
-    let MULTIPLIER_WIDTH = MULTIPLIER_WIDTH_BASE * SCALING_FACTOR;    
-    let MULTIPLIER_HEIGHT = MULTIPLIER_HEIGHT_BASE * SCALING_FACTOR;  
-    let LIFEUP_WIDTH = LIFEUP_WIDTH_BASE * SCALING_FACTOR;    
-    let LIFEUP_HEIGHT = LIFEUP_HEIGHT_BASE * SCALING_FACTOR;
-    let MAGNET_WIDTH = MAGNET_WIDTH_BASE * SCALING_FACTOR;    
-    let MAGNET_HEIGHT = MAGNET_HEIGHT_BASE * SCALING_FACTOR;
-    let FLIGHT_POWERUP_WIDTH = FLIGHT_POWERUP_WIDTH_BASE * SCALING_FACTOR;  
-    let FLIGHT_POWERUP_HEIGHT = FLIGHT_POWERUP_HEIGHT_BASE * SCALING_FACTOR;
-
-    // Flug-Konfiguration
-    let FLIGHT_RISE_SPEED = FLIGHT_RISE_SPEED_BASE * SCALING_FACTOR;             
-    let FLIGHT_SINK_SPEED = FLIGHT_SINK_SPEED_BASE * SCALING_FACTOR;             
-    FLIGHT_CENTER_Y = GAME_HEIGHT / 2 - (25 * SCALING_FACTOR);
-    FLIGHT_CENTER_X = GAME_WIDTH / 2 - (37.5 * SCALING_FACTOR);
-    let FLIGHT_IMAGE_WIDTH = FLIGHT_IMAGE_WIDTH_BASE * SCALING_FACTOR;  
-    let FLIGHT_IMAGE_HEIGHT = FLIGHT_IMAGE_HEIGHT_BASE * SCALING_FACTOR;  
-
-    // Logik Definitionen
-    let MAGNET_RANGE = MAGNET_RANGE_BASE * SCALING_FACTOR;    
-
-    // Magnet Anzeige
-    let MAGNET_ICON_WIDTH = MAGNET_ICON_WIDTH_BASE * SCALING_FACTOR; 
-    let MAGNET_ICON_HEIGHT = MAGNET_ICON_HEIGHT_BASE * SCALING_FACTOR; 
-    let MAGNET_ICON_PADDING = MAGNET_ICON_PADDING_BASE * SCALING_FACTOR;     
-    let MAGNET_TEXT_OFFSET_X = MAGNET_TEXT_OFFSET_X_BASE * SCALING_FACTOR;   
-    let MAGNET_DISPLAY_Y = MAGNET_DISPLAY_Y_BASE * SCALING_FACTOR;         
-
-    // Kollision & Position
-    let Y_OFFSET = Y_OFFSET_BASE * SCALING_FACTOR; 
-    let JUMP_HEIGHT_BOOST = JUMP_HEIGHT_BOOST_BASE * SCALING_FACTOR; 
-
-    let OBSTACLE_WIDTH = OBSTACLE_WIDTH_BASE * SCALING_FACTOR; 
-    let OBSTACLE_HEIGHT = OBSTACLE_HEIGHT_BASE * SCALING_FACTOR; 
-    gameSpeed = 6 * SCALING_FACTOR; 
-
-    // Socken-Variablen
-    let SOCK_WIDTH = SOCK_WIDTH_BASE * SCALING_FACTOR;
-    let SOCK_HEIGHT = SOCK_HEIGHT_BASE * SCALING_FACTOR;
-    let SOCK_Y_OFFSET = SOCK_Y_OFFSET_BASE * SCALING_FACTOR;
-
-    // Player-Werte
-    player.x = 50 * SCALING_FACTOR;
-    player.width = 75 * SCALING_FACTOR; 
-    player.height = 50 * SCALING_FACTOR;
-    player.jumpPower = -18 * SCALING_FACTOR; 
-    player.gravity = 0.6 * SCALING_FACTOR;
-    
-    // Setze Spieler bei Rotation auf den Boden zurück (nur wenn das Spiel läuft)
-    if (gameRunning) {
-        // Spieler und Boden werden relativ zur gesamten GAME_HEIGHT positioniert
-        player.y = GAME_HEIGHT - player.height;
-    }
-}
-
-// Initialer Aufruf zur Größenberechnung
-resizeGame();
-// Event-Listener für Geräterotation/Größenänderung
-window.addEventListener('resize', resizeGame);
-
-
-// ======================================================
 // === BILDER LADEN ===
 // ======================================================
 const playerStandImg = new Image();
@@ -245,7 +163,6 @@ eddiImg.src = 'eddi_hund.png';
 const arrowRightImg = new Image();
 arrowRightImg.src = 'arrow_right.png';
 
-
 function activatePowerUp(type) {
     if (type === 'MULTIPLIER') {
         if (scoreMultiplier === 1) {
@@ -272,6 +189,81 @@ function activatePowerUp(type) {
     }
 }
 
+// ======================================================
+// === HAUPT-SKALIERUNGSFUNKTION (VOLL-RESPONSIV & FIX) ===
+// ======================================================
+function resizeGame() {
+    // 1. Setze Canvas auf die volle Größe des Browser-Fensters
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    GAME_WIDTH = canvas.width;
+    GAME_HEIGHT = canvas.height; 
+
+    // 2. Bestimme den Skalierungsfaktor
+    SCALING_FACTOR = GAME_WIDTH / BASE_WIDTH;
+    if (GAME_HEIGHT / GAME_WIDTH < BASE_RATIO) {
+        SCALING_FACTOR = GAME_HEIGHT / BASE_HEIGHT;
+    }
+    
+    // 3. NEU: Skaliere das Padding für die Navigationsleiste und definiere den Boden
+    MOBILE_NAV_PADDING = MOBILE_NAV_PADDING_BASE * SCALING_FACTOR;
+    GROUND_Y = GAME_HEIGHT - MOBILE_NAV_PADDING; // Der Boden ist nun etwas höher!
+
+    // 4. BERECHNUNG ALLER ABHÄNGIGEN GRÖSSEN
+    
+    let MULTIPLIER_WIDTH = MULTIPLIER_WIDTH_BASE * SCALING_FACTOR;    
+    let MULTIPLIER_HEIGHT = MULTIPLIER_HEIGHT_BASE * SCALING_FACTOR;  
+    let LIFEUP_WIDTH = LIFEUP_WIDTH_BASE * SCALING_FACTOR;    
+    let LIFEUP_HEIGHT = LIFEUP_HEIGHT_BASE * SCALING_FACTOR;
+    let MAGNET_WIDTH = MAGNET_WIDTH_BASE * SCALING_FACTOR;    
+    let MAGNET_HEIGHT = MAGNET_HEIGHT_BASE * SCALING_FACTOR;
+    let FLIGHT_POWERUP_WIDTH = FLIGHT_POWERUP_WIDTH_BASE * SCALING_FACTOR;  
+    let FLIGHT_POWERUP_HEIGHT = FLIGHT_POWERUP_HEIGHT_BASE * SCALING_FACTOR;
+
+    let FLIGHT_RISE_SPEED = FLIGHT_RISE_SPEED_BASE * SCALING_FACTOR;             
+    let FLIGHT_SINK_SPEED = FLIGHT_SINK_SPEED_BASE * SCALING_FACTOR;             
+    FLIGHT_CENTER_Y = GAME_HEIGHT / 2 - (25 * SCALING_FACTOR);
+    FLIGHT_CENTER_X = GAME_WIDTH / 2 - (37.5 * SCALING_FACTOR);
+    let FLIGHT_IMAGE_WIDTH = FLIGHT_IMAGE_WIDTH_BASE * SCALING_FACTOR;  
+    let FLIGHT_IMAGE_HEIGHT = FLIGHT_IMAGE_HEIGHT_BASE * SCALING_FACTOR;  
+
+    let MAGNET_RANGE = MAGNET_RANGE_BASE * SCALING_FACTOR;    
+
+    let MAGNET_ICON_WIDTH = MAGNET_ICON_WIDTH_BASE * SCALING_FACTOR; 
+    let MAGNET_ICON_HEIGHT = MAGNET_ICON_HEIGHT_BASE * SCALING_FACTOR; 
+    let MAGNET_ICON_PADDING = MAGNET_ICON_PADDING_BASE * SCALING_FACTOR;     
+    let MAGNET_TEXT_OFFSET_X = MAGNET_TEXT_OFFSET_X_BASE * SCALING_FACTOR;   
+    let MAGNET_DISPLAY_Y = MAGNET_DISPLAY_Y_BASE * SCALING_FACTOR;         
+
+    let Y_OFFSET = Y_OFFSET_BASE * SCALING_FACTOR; 
+    let JUMP_HEIGHT_BOOST = JUMP_HEIGHT_BOOST_BASE * SCALING_FACTOR; 
+
+    let OBSTACLE_WIDTH = OBSTACLE_WIDTH_BASE * SCALING_FACTOR; 
+    let OBSTACLE_HEIGHT = OBSTACLE_HEIGHT_BASE * SCALING_FACTOR; 
+    gameSpeed = 6 * SCALING_FACTOR; 
+
+    let SOCK_WIDTH = SOCK_WIDTH_BASE * SCALING_FACTOR;
+    let SOCK_HEIGHT = SOCK_HEIGHT_BASE * SCALING_FACTOR;
+    let SOCK_Y_OFFSET = SOCK_Y_OFFSET_BASE * SCALING_FACTOR;
+
+    player.x = 50 * SCALING_FACTOR;
+    player.width = 75 * SCALING_FACTOR; 
+    player.height = 50 * SCALING_FACTOR;
+    player.jumpPower = -18 * SCALING_FACTOR; 
+    player.gravity = 0.6 * SCALING_FACTOR;
+    
+    // Setze Spieler bei Rotation auf den korrigierten Boden zurück
+    if (gameRunning) {
+        player.y = GROUND_Y - player.height; 
+    }
+}
+
+// Initialer Aufruf zur Größenberechnung
+resizeGame();
+// Event-Listener für Geräterotation/Größenänderung
+window.addEventListener('resize', resizeGame);
+
 
 // WICHTIG: Warte, bis ALLE Bilder geladen sind
 Promise.all([
@@ -290,11 +282,11 @@ Promise.all([
     new Promise(resolve => arrowRightImg.onload = resolve) 
 ]).then(() => {
     // Die player.y Position wird beim Start auf den korrekten, skalierten Wert gesetzt.
-    resizeGame(); // Erneuter Resize, um sicherzustellen, dass SCALING_FACTOR gesetzt ist
-    player.y = GAME_HEIGHT - player.height;
+    resizeGame(); 
+    player.y = GROUND_Y - player.height;
     
     nextObstacleFrame = Math.floor(Math.random() * (MAX_GAP - MIN_GAP)) + MIN_GAP;
-    // Beim Laden der Seite nur IntroScreen1 zeigen
+    
     introScreen1.classList.remove('hidden');
     introScreen2.classList.add('hidden');
     startScreen.classList.add('hidden');
@@ -304,41 +296,32 @@ Promise.all([
     // === KORRIGIERTE INITIALISIERUNG DER INTRO-BUTTONS ===
     // =======================================================
     
-    // Funktion zum Wechseln von Intro 1 zu Intro 2
     const goToIntro2 = (e) => {
         e.stopPropagation(); 
         introScreen1.classList.add('hidden');
         introScreen2.classList.remove('hidden');
     };
     
-    // Funktion zum Wechseln von Intro 2 zum Startbildschirm
     const goToStartScreen = (e) => {
         e.stopPropagation(); 
         introScreen2.classList.add('hidden');
         startScreen.classList.remove('hidden'); 
     };
 
-    // FÜGE KORREKTE EVENT LISTENER HINZU
     if (nextIntro1Btn) {
-        // Hängt Event-Listener für Klick und Touch an
         nextIntro1Btn.addEventListener('click', goToIntro2);
         nextIntro1Btn.addEventListener('touchstart', goToIntro2); 
     }
     if (nextIntro2Btn) {
-        // Hängt Event-Listener für Klick und Touch an
         nextIntro2Btn.addEventListener('click', goToStartScreen);
         nextIntro2Btn.addEventListener('touchstart', goToStartScreen); 
     }
-    
     // =======================================================
-
 });
 
 function handleInput(e) {
-    // Verhindert Standard-Browser-Verhalten beim Tippen/Klicken (MOBILE-FIX)
     if(e) e.preventDefault(); 
     
-    // HandleInput nur, wenn das Spiel läuft
     if (gameRunning && player.grounded) { 
         player.dy = player.jumpPower;
         player.grounded = false;
@@ -352,12 +335,9 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Touch-Eingabe auf Canvas
 canvas.addEventListener('mousedown', handleInput);
 canvas.addEventListener('touchstart', handleInput); 
 
-
-// Klick auf Startbildschirm, um das Spiel zu starten
 if (startScreen) {
     startScreen.addEventListener('click', startGame);
     startScreen.addEventListener('touchstart', startGame); 
@@ -428,7 +408,6 @@ function gameWin() {
 // === START LOGIK ===
 
 function startGame() {
-    // Sicherstellen, dass die Canvas-Größe bei Start korrekt ist (z.B. nach Rotation)
     resizeGame();
     
     gameRunning = true;
@@ -438,7 +417,6 @@ function startGame() {
     scoreMultiplier = 1; 
     lives = 0; 
     
-    // Geschwindigkeit und Positionen müssen neu auf SKALIERTEN Werten basieren
     gameSpeed = 6 * SCALING_FACTOR; 
     speedIncreasePoint = 100; 
     powerUp = null; 
@@ -459,9 +437,9 @@ function startGame() {
     
     nextObstacleFrame = Math.floor(Math.random() * (MAX_GAP - MIN_GAP)) + MIN_GAP; 
     
-    // Player-Position auf skalierten Werten zurücksetzen
+    // Player-Position auf skalierten und korrigierten Werten zurücksetzen
     player.x = 50 * SCALING_FACTOR;
-    player.y = GAME_HEIGHT - player.height;
+    player.y = GROUND_Y - player.height;
     
     startScreen.classList.add('hidden'); 
     gameOverScreen.classList.add('hidden');
@@ -471,13 +449,39 @@ function startGame() {
     animate();
 }
 
+// ======================================================
+// === NEUE FUNKTION: HINTERGRUND ZEICHNEN (COVER-FIX) ===
+// ======================================================
+function drawBackground() {
+    const imgAspect = backgroundImg.width / backgroundImg.height;
+    const canvasAspect = canvas.width / canvas.height;
+    let sx, sy, sWidth, sHeight;
+
+    if (imgAspect > canvasAspect) {
+        // Hintergrundbild ist breiter als das Canvas-Verhältnis
+        sHeight = backgroundImg.height;
+        sWidth = backgroundImg.height * canvasAspect;
+        sx = (backgroundImg.width - sWidth) / 2;
+        sy = 0;
+    } else {
+        // Hintergrundbild ist höher als das Canvas-Verhältnis
+        sWidth = backgroundImg.width;
+        sHeight = backgroundImg.width / canvasAspect;
+        sx = 0;
+        sy = (backgroundImg.height - sHeight) / 2;
+    }
+
+    // Zeichnet den Teil des Bildes (sx, sy, sWidth, sHeight) auf das gesamte Canvas (0, 0, width, height)
+    ctx.drawImage(backgroundImg, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+}
+
 function animate() {
     if (!gameRunning) return;
 
     requestAnimationFrame(animate);
     
-    // === ZEICHNEN DES HINTERGRUNDS ===
-    ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
+    // === KORRIGIERT: ZIEHE HINTERGRUND KORREKT ===
+    drawBackground();
     
     // ======================================
     
@@ -492,7 +496,7 @@ function animate() {
         score = WIN_SCORE;
     }
     
-    // FLUG- UND PHYSIK-LOGIK (Unverändert, verwendet SCALING_FACTOR)
+    // FLUG- UND PHYSIK-LOGIK
     if (!isFlying && !isSinking) {
         player.dy += player.gravity;
         player.y += player.dy;
@@ -502,8 +506,9 @@ function animate() {
         player.x = 50 * SCALING_FACTOR; 
     }
 
-    if (player.y + player.height > GAME_HEIGHT) {
-        player.y = GAME_HEIGHT - player.height;
+    // KORRIGIERT: Bodenkollision nutzt GROUND_Y
+    if (player.y + player.height > GROUND_Y) { 
+        player.y = GROUND_Y - player.height;
         player.dy = 0;
         player.grounded = true;
     }
@@ -512,7 +517,7 @@ function animate() {
         const elapsed = performance.now() - flightStartTime;
         
         if (player.y > FLIGHT_CENTER_Y) { 
-            player.y -= FLIGHT_RISE_SPEED_BASE * SCALING_FACTOR; // Verwende BASE-Werte und skaliere
+            player.y -= FLIGHT_RISE_SPEED_BASE * SCALING_FACTOR; 
             if (player.y < FLIGHT_CENTER_Y) { 
                 player.y = FLIGHT_CENTER_Y;
             }
@@ -521,7 +526,7 @@ function animate() {
         }
         
         if (player.x < FLIGHT_CENTER_X) {
-            player.x += FLIGHT_RISE_SPEED_BASE * SCALING_FACTOR; // Verwende BASE-Werte und skaliere
+            player.x += FLIGHT_RISE_SPEED_BASE * SCALING_FACTOR; 
             if (player.x > FLIGHT_CENTER_X) {
                 player.x = FLIGHT_CENTER_X;
             }
@@ -538,7 +543,7 @@ function animate() {
         player.dy = 0; 
     } 
     else if (isSinking) {
-        player.y += FLIGHT_SINK_SPEED_BASE * SCALING_FACTOR; // Verwende BASE-Werte und skaliere
+        player.y += FLIGHT_SINK_SPEED_BASE * SCALING_FACTOR; 
         
         const targetX = 50 * SCALING_FACTOR; 
         const easingFactor = FLIGHT_HORIZONTAL_EASING;
@@ -552,8 +557,9 @@ function animate() {
             }
         }
         
-        if (player.y + player.height >= GAME_HEIGHT) { 
-            player.y = GAME_HEIGHT - player.height;
+        // KORRIGIERT: Sinking-Stop nutzt GROUND_Y
+        if (player.y + player.height >= GROUND_Y) { 
+            player.y = GROUND_Y - player.height;
             isSinking = false; 
             
             player.x = 50 * SCALING_FACTOR; 
@@ -575,15 +581,13 @@ function animate() {
 
     // SPIELER ZEICHNEN LOGIK
     let imageToDraw;
-    // Hier verwenden wir direkt die skalierten Werte, die in resizeGame() 
-    // in die player-Objekte geschrieben wurden (player.width/height)
     let drawWidth = player.width;    
     let drawHeight = player.height;  
     let drawY = player.y;            
 
     if (isFlying || isSinking) { 
         imageToDraw = playerFlightImg;
-        drawWidth = FLIGHT_IMAGE_WIDTH_BASE * SCALING_FACTOR; // Hier wieder Basiswerte nutzen
+        drawWidth = FLIGHT_IMAGE_WIDTH_BASE * SCALING_FACTOR; 
         drawHeight = FLIGHT_IMAGE_HEIGHT_BASE * SCALING_FACTOR;
         drawY = player.y - (5 * SCALING_FACTOR); 
     } 
@@ -632,13 +636,13 @@ function animate() {
                 type = 'MULTIPLIER'; width_base = MULTIPLIER_WIDTH_BASE; height_base = MULTIPLIER_HEIGHT_BASE;
             }
 
-            // Power-Up Y-Position: Hängt von der Größe des Hindernisses ab
-            const powerUpY_BASE = BASE_HEIGHT - OBSTACLE_HEIGHT_BASE - 50; // Etwas oberhalb des Hindernis-Boden-Bereichs
+            // Power-Up Y-Position: Referenzhöhe anpassen
+            const powerUpY_BASE = BASE_HEIGHT - OBSTACLE_HEIGHT_BASE - 50; 
             
             powerUp = {
                 x: canvas.width,
-                // Y-Position des Power-Ups skaliert
-                y: powerUpY_BASE * SCALING_FACTOR - (height_base * SCALING_FACTOR),
+                // Y-Position des Power-Ups skaliert und am korrigierten Boden ausgerichtet
+                y: powerUpY_BASE * SCALING_FACTOR - (height_base * SCALING_FACTOR) - MOBILE_NAV_PADDING,
                 width: width_base * SCALING_FACTOR,    
                 height: height_base * SCALING_FACTOR,
                 type: type
@@ -648,7 +652,6 @@ function animate() {
     
     // Power-Up Bewegung und Zeichnen & Kollision
     if (powerUp) {
-        // ... (Logik bleibt gleich) ...
         const isMagnetActive = activePowerUp === 'MAGNET' && magnetCharges > 0; 
         
         if (isMagnetActive) { 
@@ -710,8 +713,8 @@ function animate() {
 
         obstacles.push({
             x: canvas.width,
-            // NEU: Y-Position des Hindernisses ist der Boden (GAME_HEIGHT) minus der Höhe des Bildes.
-            y: GAME_HEIGHT - currentObstacleHeight, 
+            // KORRIGIERT: Y-Position des Hindernisses nutzt GROUND_Y
+            y: GROUND_Y - currentObstacleHeight, 
             width: currentObstacleWidth,
             height: currentObstacleHeight
         });
@@ -763,7 +766,7 @@ function animate() {
         }
     }
     
-    // === SOCKE-GEWINN-LOGIK (Einsammeln) ===
+    // === SOCKE-GEWINN-LOGIK ===
     if (score >= WIN_SCORE && !sockSpawned && winObject === null) {
         sockSpawned = true; 
         
@@ -772,8 +775,8 @@ function animate() {
 
         winObject = {
             x: canvas.width,
-            // NEU: Y-Position der Socke ist der Boden (GAME_HEIGHT) minus der Höhe des Bildes.
-            y: GAME_HEIGHT - currentSockHeight - SOCK_Y_OFFSET_BASE * SCALING_FACTOR, 
+            // KORRIGIERT: Y-Position der Socke nutzt GROUND_Y
+            y: GROUND_Y - currentSockHeight - SOCK_Y_OFFSET_BASE * SCALING_FACTOR, 
             width: currentSockWidth,
             height: currentSockHeight,
         };
@@ -800,7 +803,7 @@ function animate() {
         }
     }
     
-    // SCOREBOARD ANZEIGEN (Schriftgröße skaliert)
+    // SCOREBOARD ANZEIGEN 
     ctx.font = `${Math.round(24 * SCALING_FACTOR)}px Arial, sans-serif`; 
     ctx.shadowColor = 'white'; 
     ctx.shadowBlur = 12 * SCALING_FACTOR;      
