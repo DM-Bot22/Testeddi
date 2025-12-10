@@ -6,47 +6,51 @@ const ZIEL_URL = "https://www.google.de";
 const WIN_SCORE = 10; 
 const WIN_SOCK_SRC = 'sock_image.png'; 
 const GAME_START_TIME = Date.now();
+
+// Original (Basis-) Dimensionen für die Berechnung des Skalierungsfaktors
+const BASE_WIDTH = 800; 
+// Das Seitenverhältnis (585 / 1024) beibehalten, um die korrekte Logikhöhe zu bestimmen
+const BASE_HEIGHT_RATIO = 585 / 1024; 
+const BASE_HEIGHT = BASE_WIDTH * BASE_HEIGHT_RATIO; 
 // --------------------
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// === NEUE DYNAMISCHE GRÖßENBERECHNUNG (NICHT-VERZERRT) ===
+// === ROBUSTE 'CONTAIN' SKALIERUNG ===
 // 1. Hole die tatsächliche Größe, die durch das Fullscreen-CSS festgelegt wurde
 const canvasRect = canvas.getBoundingClientRect();
 
 // 2. Definiere die interne Canvas-Auflösung auf die tatsächliche angezeigte Größe
-// (Dies ist die physikalische Größe des Canvas)
 canvas.width = canvasRect.width;
 canvas.height = canvasRect.height; 
 
-// --- LOGIK FÜR NICHT-VERZERRTES SPIELFELD ---
-// Referenz-Seitenverhältnis H/B (basierend auf 585/1024 aus der früheren Logik)
-const BASE_ASPECT_RATIO = 585 / 1024; 
-const LOGICAL_GAME_WIDTH = canvas.width;
+// 3. Bestimme den besten Skalierungsfaktor ('Contain'-Logik)
+// Berechnet, wie oft die Basis-Breite in die Canvas-Breite passt
+const scaleX = canvas.width / BASE_WIDTH;
+// Berechnet, wie oft die Basis-Höhe in die Canvas-Höhe passt
+const scaleY = canvas.height / BASE_HEIGHT;
 
-// Berechnung der logischen Höhe, um die Proportionen beizubehalten
-const LOGICAL_GAME_HEIGHT = Math.round(LOGICAL_GAME_WIDTH * BASE_ASPECT_RATIO); 
+// Nutze den kleineren Faktor, um Verzerrung zu vermeiden und innerhalb der Grenzen zu bleiben
+const SCALING_FACTOR = Math.min(scaleX, scaleY); 
 
-// Berechne den vertikalen Offset, um das Spiel zu zentrieren
-const Y_OFFSET_DRAWING = (canvas.height - LOGICAL_GAME_HEIGHT) / 2;
-// --- ENDE LOGIK FÜR NICHT-VERZERRTES SPIELFELD ---
+// 4. Definiere die logische Größe des Spielbereichs
+// Dies ist der Bereich, der tatsächlich gezeichnet wird (mit korrektem Seitenverhältnis)
+const GAME_WIDTH = BASE_WIDTH * SCALING_FACTOR;
+const GAME_HEIGHT = BASE_HEIGHT * SCALING_FACTOR; 
 
+// 5. Berechne den Offset, um das Spiel zu zentrieren (horizontal und vertikal)
+const X_OFFSET_DRAWING = (canvas.width - GAME_WIDTH) / 2;
+const Y_OFFSET_DRAWING = (canvas.height - GAME_HEIGHT) / 2;
+// === ENDE LOGIK FÜR ROBUSTE 'CONTAIN' SKALIERUNG ===
 
-// 3. Definiere den Skalierungsfaktor zur Berechnung aller Variablen
-// Referenzbreite (PC-Basis): 800px
-const BASE_WIDTH = 800; 
-const SCALING_FACTOR = canvas.width / BASE_WIDTH;
-
-// Spielgröße (Alle Logik verwendet jetzt diese logische Höhe)
-const GAME_WIDTH = canvas.width;
-const GAME_HEIGHT = LOGICAL_GAME_HEIGHT; 
 
 // --- POWER-UP KONFIGURATION (ALLE WERTE SKALIERT) ---
 const POWERUP_SPAWN_SCORE = 1;      
 const POWERUP_SPAWN_INTERVAL = 200;    
 const POWERUP_CHANCE = 0.5;            
 
+// ALLE KONSTANTEN SKALIEREN NACH DEM NEU BERECHNETEN SCALING_FACTOR
 const MULTIPLIER_WIDTH = 80 * SCALING_FACTOR;    
 const MULTIPLIER_HEIGHT = 60 * SCALING_FACTOR;  
 const LIFEUP_WIDTH = 60 * SCALING_FACTOR;    
@@ -88,7 +92,7 @@ const JUMP_HEIGHT_BOOST = 45 * SCALING_FACTOR;
 // --- ZUSTANDSVARIABLEN ---
 let gameRunning = false;
 let score = 0;
-let gameSpeed = 6 * SCALING_FACTOR; // STARTGESCHWINDIGKEIT SKALIERT
+let gameSpeed = 6 * SCALING_FACTOR; // STARTGESCHWINDIGKEIT SKALIERT NEU
 let scoreMultiplier = 1; 
 let powerUp = null; 
 let activePowerUp = null; 
@@ -140,7 +144,7 @@ const nextIntro2Btn = document.getElementById('nextIntro2');
 
 
 // ======================================================
-// === BILDER LADEN ===
+// === BILDER LADEN (Unverändert) ===
 // ======================================================
 const playerStandImg = new Image();
 playerStandImg.src = 'player_stand.png'; 
@@ -272,7 +276,7 @@ if (startScreen) {
 }
 
 
-// === END-LOGIK ===
+// === END-LOGIK (Unverändert) ===
 function endGame(isWin) {
     gameRunning = false;
     gameWon = isWin;
@@ -327,7 +331,7 @@ function gameWin() {
     endGame(true);
 }
 
-// === START LOGIK ===
+// === START LOGIK (Unverändert, nutzt GAME_HEIGHT) ===
 
 function startGame() {
     gameRunning = true;
@@ -378,13 +382,13 @@ function animate() {
     
     // ======================================
     // === HINTERGRUND ZEICHNEN MIT OFFSET ===
-    // 1. Hintergrund füllen (für den schwarzen Rand oben/unten/seitlich)
+    // 1. Hintergrund füllen (für den schwarzen Rand)
     ctx.fillStyle = '#222'; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     // 2. Hintergrundbild in der Mitte, ungestreckt zeichnen
     ctx.drawImage(backgroundImg, 
-                  0, Y_OFFSET_DRAWING, // Verschiebe das Bild um den Offset nach unten
+                  X_OFFSET_DRAWING, Y_OFFSET_DRAWING, 
                   GAME_WIDTH, GAME_HEIGHT); 
     // ======================================
     
@@ -399,7 +403,7 @@ function animate() {
         score = WIN_SCORE;
     }
     
-    // FLUG- UND PHYSIK-LOGIK
+    // ... (FLUG- UND PHYSIK-LOGIK - Unverändert, nutzt GAME_HEIGHT) ...
     if (!isFlying && !isSinking) {
         player.dy += player.gravity;
         player.y += player.dy;
@@ -414,8 +418,6 @@ function animate() {
         player.dy = 0;
         player.grounded = true;
     }
-    
-    // ... (FLUG-LOGIK bleibt unverändert und nutzt die korrekte GAME_HEIGHT) ...
 
     if (isFlying) {
         const elapsed = performance.now() - flightStartTime;
@@ -504,11 +506,11 @@ function animate() {
         drawY = player.y - JUMP_HEIGHT_BOOST; 
     }
     
-    // KRITISCH: Wende den Y_OFFSET_DRAWING auf die Y-Position an
+    // KRITISCH: Wende den X_OFFSET_DRAWING und Y_OFFSET_DRAWING an
     ctx.drawImage(
         imageToDraw, 
-        player.x, 
-        drawY + Y_OFFSET_DRAWING, // Hier wird der Spieler nach unten verschoben
+        player.x + X_OFFSET_DRAWING, 
+        drawY + Y_OFFSET_DRAWING, 
         drawWidth, 
         drawHeight 
     );
@@ -518,11 +520,27 @@ function animate() {
     // SPWANING & MAGNET LOGIK
     frame++;
 
-    // ... (POWER-UP SPAWN LOGIK unverändert) ...
+    // ... (Power-Up Spawning Logik unverändert) ...
     
     // Power-Up Bewegung und Zeichnen & Kollision
     if (powerUp) {
-        // ... (Bewegungslogik unverändert)
+        
+        const isMagnetActive = activePowerUp === 'MAGNET' && magnetCharges > 0; 
+        
+        if (isMagnetActive) { 
+            
+            const dx = (powerUp.x + powerUp.width / 2) - (player.x + player.width / 2);
+            const dy = (powerUp.y + powerUp.height / 2) - (player.y + player.height / 2);
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            const magnetPullSpeed = currentSpeed * 4; 
+
+            if (distance < MAGNET_RANGE) {
+                powerUp.x -= (dx / distance) * magnetPullSpeed; 
+                powerUp.y -= (dy / distance) * magnetPullSpeed;
+            }
+        }
+        
         powerUp.x -= currentSpeed;
         
         let imgToDraw;
@@ -531,17 +549,27 @@ function animate() {
         else if (powerUp.type === 'LIFE') imgToDraw = lifeImg;
         else if (powerUp.type === 'FLIGHT') imgToDraw = flightImg; 
 
-        // KRITISCH: Wende den Y_OFFSET_DRAWING auf die Y-Position an
-        ctx.drawImage(imgToDraw, powerUp.x, powerUp.y + Y_OFFSET_DRAWING, powerUp.width, powerUp.height);
+        // KRITISCH: Wende den X_OFFSET_DRAWING und Y_OFFSET_DRAWING an
+        ctx.drawImage(imgToDraw, 
+                      powerUp.x + X_OFFSET_DRAWING, 
+                      powerUp.y + Y_OFFSET_DRAWING, 
+                      powerUp.width, powerUp.height);
         
-        // ... (Kollisionslogik unverändert)
         if (
             player.x < powerUp.x + powerUp.width &&
             player.x + player.width > powerUp.x &&
-            player.y < powerUp.y + powerUp.height && // Nutzt unverschobenes player.y
-            player.y + player.height > powerUp.y     // Nutzt unverschobenes player.y
+            player.y < powerUp.y + powerUp.height &&
+            player.y + player.height > powerUp.y
         ) {
-            // ... (Aktivierungslogik unverändert)
+            if (isMagnetActive && powerUp.type !== 'MAGNET') {
+                magnetCharges--;
+                if (magnetCharges <= 0) {
+                    activePowerUp = null; 
+                }
+            }
+            
+            activatePowerUp(powerUp.type);
+            powerUp = null; 
         }
         
         if (powerUp && powerUp.x + powerUp.width < 0) {
@@ -549,17 +577,59 @@ function animate() {
         }
     }
 
-    // ... (HINDERNIS-LOGIK unverändert) ...
-    
     // HINDERNIS-LOGIK (Zeichnen und Kollision)
+    const gapScaling = isFlying ? FLIGHT_SPEED_MULTIPLIER : 1; 
+    
+    const scaledMinGap = Math.floor(MIN_GAP / gapScaling);
+    const scaledMaxGap = Math.floor(MAX_GAP / gapScaling);
+    
+    if (score < WIN_SCORE - 1 && frame >= nextObstacleFrame) { 
+        obstacles.push({
+            x: GAME_WIDTH, // Muss GAME_WIDTH nutzen
+            y: (GAME_HEIGHT - OBSTACLE_HEIGHT) + Y_OFFSET, 
+            width: OBSTACLE_WIDTH,
+            height: OBSTACLE_HEIGHT
+        });
+        
+        nextObstacleFrame = frame + Math.floor(Math.random() * (scaledMaxGap - scaledMinGap + 1)) + scaledMinGap;
+    }
+    
     for (let i = 0; i < obstacles.length; i++) {
         let obs = obstacles[i];
         obs.x -= currentSpeed;
 
-        // KRITISCH: Wende den Y_OFFSET_DRAWING auf die Y-Position an
-        ctx.drawImage(obstacleImg, obs.x, obs.y + Y_OFFSET_DRAWING, obs.width, obs.height);
+        // KRITISCH: Wende den X_OFFSET_DRAWING und Y_OFFSET_DRAWING an
+        ctx.drawImage(obstacleImg, 
+                      obs.x + X_OFFSET_DRAWING, 
+                      obs.y + Y_OFFSET_DRAWING, 
+                      obs.width, obs.height);
 
-        // ... (Kollisionslogik bleibt unverändert, da sie die GAME_HEIGHT nutzt)
+        // Kollisions-Hitbox Berechnung skaliert
+        const hitboxWidth = obs.width * (1 - HITBOX_WIDTH_REDUCTION); 
+        const hitboxX = obs.x + (obs.width * (HITBOX_WIDTH_REDUCTION / 2)); 
+        const hitboxHeight = obs.height * (1 - HITBOX_HEIGHT_TOP_OFFSET);
+        const hitboxY = obs.y + (obs.height * HITBOX_HEIGHT_TOP_OFFSET); 
+
+        if (
+            player.x < hitboxX + hitboxWidth && player.x + player.width > hitboxX &&
+            player.y < hitboxY + hitboxHeight && player.y + player.height > hitboxY
+        ) {
+            if (isFlying || isSinking || isInvulnerable) { 
+                obstacles.splice(i, 1); 
+                i--;
+                continue; 
+            }
+            
+            if (lives > 0) {
+                lives--; 
+                obstacles.splice(i, 1); 
+                i--;
+                continue; 
+            } else {
+                gameOver(); 
+                return; 
+            }
+        }
         
         if (obs.x + obs.width < 0) {
             obstacles.splice(i, 1);
@@ -573,19 +643,44 @@ function animate() {
     }
     
     // SOCKE-GEWINN-LOGIK
+    
+    // Spawnen der Socke (passiert nur einmal, wenn der Score erreicht ist)
+    if (score >= WIN_SCORE && !sockSpawned && winObject === null) {
+        sockSpawned = true; 
+        const SOCK_WIDTH = 700 * SCALING_FACTOR; 
+        const SOCK_HEIGHT = 480 * SCALING_FACTOR; 
+        
+        winObject = {
+            x: GAME_WIDTH, // Muss GAME_WIDTH nutzen
+            y: GAME_HEIGHT - SOCK_HEIGHT - (30 * SCALING_FACTOR), 
+            width: SOCK_WIDTH,
+            height: SOCK_HEIGHT,
+        };
+    }
+
     if (winObject) {
         winObject.x -= currentSpeed; 
         
-        // KRITISCH: Wende den Y_OFFSET_DRAWING auf die Y-Position an
-        ctx.drawImage(winningSockImg, winObject.x, winObject.y + Y_OFFSET_DRAWING, winObject.width, winObject.height);
+        // KRITISCH: Wende den X_OFFSET_DRAWING und Y_OFFSET_DRAWING an
+        ctx.drawImage(winningSockImg, 
+                      winObject.x + X_OFFSET_DRAWING, 
+                      winObject.y + Y_OFFSET_DRAWING, 
+                      winObject.width, winObject.height);
         
-        // ... (Kollisionslogik unverändert)
+        if (
+            player.x < winObject.x + winObject.width &&
+            player.x + player.width > winObject.x &&
+            player.y < winObject.y + winObject.height &&
+            player.y + player.height > winObject.y
+        ) {
+            gameWin(); 
+            return; 
+        }
+
         if (winObject.x + winObject.width < 0) {
             winObject = null;
         }
     }
-    
-    // ======================================================
     
     // SCOREBOARD ANZEIGEN (HUD)
     ctx.font = `${Math.round(24 * SCALING_FACTOR)}px Arial, sans-serif`; 
@@ -598,26 +693,34 @@ function animate() {
     if (scoreMultiplier > 1) {
         scoreText += ' (x' + scoreMultiplier + ')';
     }
-    // KRITISCH: Wende den Y_OFFSET_DRAWING auf die Y-Position an
-    ctx.fillText(scoreText, 10 * SCALING_FACTOR, 30 * SCALING_FACTOR + Y_OFFSET_DRAWING);
+    // KRITISCH: Wende den X_OFFSET_DRAWING und Y_OFFSET_DRAWING an
+    ctx.fillText(scoreText, 
+                 10 * SCALING_FACTOR + X_OFFSET_DRAWING, 
+                 30 * SCALING_FACTOR + Y_OFFSET_DRAWING);
     
     ctx.shadowBlur = 0; 
     if (lives > 0) { 
         const heartSize = 60 * SCALING_FACTOR; 
-        // KRITISCH: Wende den Y_OFFSET_DRAWING auf die Y-Position an
-        ctx.drawImage(lifeImg, 10 * SCALING_FACTOR, 50 * SCALING_FACTOR + Y_OFFSET_DRAWING, heartSize, heartSize); 
+        // KRITISCH: Wende den X_OFFSET_DRAWING und Y_OFFSET_DRAWING an
+        ctx.drawImage(lifeImg, 
+                      10 * SCALING_FACTOR + X_OFFSET_DRAWING, 
+                      50 * SCALING_FACTOR + Y_OFFSET_DRAWING, 
+                      heartSize, heartSize); 
     }
     
     if (activePowerUp === 'MAGNET') {
         
         const ZAHL_Y_KORREKTUR = 15 * SCALING_FACTOR; 
         
-        const iconX = canvas.width - MAGNET_ICON_WIDTH - MAGNET_ICON_PADDING; 
-        
+        // Berechnet die X-Position basierend auf der neuen Breite
+        const iconX = GAME_WIDTH - MAGNET_ICON_WIDTH - MAGNET_ICON_PADDING; 
         const iconY = MAGNET_DISPLAY_Y - (MAGNET_ICON_HEIGHT / 2); 
         
-        // KRITISCH: Wende den Y_OFFSET_DRAWING auf die Y-Position an
-        ctx.drawImage(magnetImg, iconX, iconY + Y_OFFSET_DRAWING, MAGNET_ICON_WIDTH, MAGNET_ICON_HEIGHT); 
+        // KRITISCH: Wende den X_OFFSET_DRAWING und Y_OFFSET_DRAWING an
+        ctx.drawImage(magnetImg, 
+                      iconX + X_OFFSET_DRAWING, 
+                      iconY + Y_OFFSET_DRAWING, 
+                      MAGNET_ICON_WIDTH, MAGNET_ICON_HEIGHT); 
 
         ctx.font = `${Math.round(40 * SCALING_FACTOR)}px Arial, sans-serif`; 
         ctx.shadowBlur = 12 * SCALING_FACTOR; 
@@ -626,10 +729,12 @@ function animate() {
         const textX = iconX + MAGNET_ICON_WIDTH + MAGNET_TEXT_OFFSET_X;
         ctx.fillStyle = '#FFD700'; 
         ctx.textAlign = 'left'; 
-        // KRITISCH: Wende den Y_OFFSET_DRAWING auf die Y-Position an
         const textY = MAGNET_DISPLAY_Y + ZAHL_Y_KORREKTUR + Y_OFFSET_DRAWING;
         
-        ctx.fillText(magnetCharges, textX, textY);
+        // KRITISCH: Wende den X_OFFSET_DRAWING an
+        ctx.fillText(magnetCharges, 
+                     textX + X_OFFSET_DRAWING, 
+                     textY);
         
         ctx.font = `${Math.round(24 * SCALING_FACTOR)}px Arial, sans-serif`; 
     }
