@@ -16,9 +16,10 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            /* Stellt sicher, dass Body den gesamten Viewport ausfüllt */
+            /* WICHTIGE ÄNDERUNG FÜR SAMSUNG-FIX: Verwendung von 100dvh */
             width: 100vw; 
-            height: 100vh;
+            min-height: 100dvh; 
+            height: 100dvh;
             
             /* MOBILE-FIX 2: Verhindert Standard-Browser-Gesten (Scrollen, Refresh durch Wischen) */
             touch-action: none;
@@ -32,15 +33,12 @@
             width: 100%; 
             height: 100%;
             max-width: 100vw; 
-            max-height: 100vh; 
+            /* WICHTIGE ÄNDERUNG: Verwendung von 100dvh */
+            max-height: 100dvh; 
             
-            border: 5px solid #333;
+            border: none; 
             display: block;
             background-color: #555;
-            
-            /* Wenn Sie einen sichtbaren Rand möchten, können Sie die Border behalten, 
-               ansonsten entfernen Sie diese Zeile */
-            border: none; 
         }
 
         /* Allgemeine Overlay-Stile */
@@ -269,7 +267,7 @@
     <canvas id="gameCanvas"></canvas>
 
     
-<div id="introScreen1" class="overlay pergament-overlay">
+    <div id="introScreen1" class="overlay pergament-overlay hidden">
         <h2>Das ist Eddi der Haushund</h2>
         <img src="eddi_hund.png" alt="Eddi der Haushund" class="eddi-img">
         <p> Er wünscht sich zu Weihnachten eine Socke, damit er frei ist.</p>
@@ -278,7 +276,7 @@
     </div>
 
     
-<div id="introScreen2" class="overlay pergament-overlay hidden">
+    <div id="introScreen2" class="overlay pergament-overlay hidden">
         <h2>Die Legende der Power-Ups</h2>
         <p>Sammle diese magischen Gegenstände, um Eddi zu helfen:</p>
         
@@ -307,7 +305,7 @@
     </div>
 
     
-<div id="startScreen" class="overlay hidden">
+    <div id="startScreen" class="overlay hidden">
         <h1>Die Sockenjagd</h1>
         <p>Drücke die Leertaste oder klicke, um zu starten!</p>
     </div>
