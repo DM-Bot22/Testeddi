@@ -27,17 +27,20 @@
 
         #gameCanvas {
             border: 5px solid #333;
-            /* WICHTIG: Die alten festen Breiten/Höhen MÜSSEN FÜR RESPONSIVENESS WEG! */
+            /* ALTE GRÖßEN WURDEN ENTFERNT */
             
             display: block;
             background-color: #555;
 
-            /* NEU: ZENTRIERUNG & RESPONSIVENESS (Maximiert die Fläche) */
+            /* NEU: HOCHKANT-RESPONSIVENESS (Maximiert die Fläche) */
             max-width: 95vw; /* Maximale Viewport-Breite */
             max-height: 95vh; /* Maximale Viewport-Höhe */
             width: auto; 
             height: auto; 
-            aspect-ratio: 1024 / 585; /* Behält das korrekte Seitenverhältnis bei */
+            
+            /* NEUES SEITENVERHÄLTNIS FÜR HOCHKANT (9:16)
+               Passt zur neuen internen Basis von 450x800 in script.js */
+            aspect-ratio: 9 / 16; 
         }
 
         /* Allgemeine Overlay-Stile */
