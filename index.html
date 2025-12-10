@@ -9,7 +9,11 @@
     
     <style>
         body {
+            /* KRITISCHE ANPASSUNG: Füllt 100% des Viewports */
+            width: 100vw;
+            height: 100vh;
             margin: 0;
+            padding: 0;
             overflow: hidden; /* Verhindert Scrollbalken */
             background-color: #222; 
             font-family: Arial, sans-serif;
@@ -20,21 +24,22 @@
         }
 
         #gameCanvas {
-            border: 5px solid #333;
-            /* Basis-Größe für PC-Optimierung */
-            width: 800px;
-            height: 457px; 
+            border: none; /* Rand entfernt, um den Fullscreen-Effekt zu gewährleisten */
+            
+            /* KRITISCHE ANPASSUNG: Zwingt Canvas auf volle Größe */
+            width: 100vw; 
+            height: 100vh; 
             
             display: block;
             background-color: #555;
-
-            /* NEU: ZENTRIERUNG & RESPONSIVENESS */
-            max-width: 95vw; /* Darf maximal 95% der Viewport-Breite einnehmen */
-            max-height: 95vh; /* Darf maximal 95% der Viewport-Höhe einnehmen */
-            height: auto; 
+            
+            /* Alle alten Größeneinschränkungen entfernen */
+            max-width: none !important; 
+            max-height: none !important; 
+            height: 100vh; 
         }
 
-        /* Allgemeine Overlay-Stile */
+        /* Allgemeine Overlay-Stile (bleiben relativ zur neuen Canvas-Größe zentriert) */
         .overlay {
             position: absolute;
             top: 50%;
@@ -203,18 +208,13 @@
         }
 
         /* ================================================= */
-        /* === NEUE MEDIA QUERY FÜR MOBILGERÄTE (MAX 850PX) === */
+        /* === MEDIA QUERY FÜR MOBILGERÄTE (MAX 850PX) === */
         /* ================================================= */
 
         @media (max-width: 850px) {
-            #gameCanvas {
-                /* Auf Mobilgeräten wird die Canvas-Breite auf die maximale 
-                   Bildschirmbreite (minus Ränder) gesetzt.
-                */
-                width: 95vw; 
-                height: auto; 
-                /* Die Höhe wird durch das JS-Skript proportional gesetzt */
-            }
+            
+            /* Auf Mobilgeräten wird die Canvas-Breite bereits auf 100vw gesetzt, 
+               daher müssen hier nur die Overlays angepasst werden. */
             
             /* Overlays sollten auf kleinen Geräten besser skalieren */
             .overlay, .pergament-overlay {
