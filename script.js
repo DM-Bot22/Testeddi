@@ -837,6 +837,6 @@ function animate() {
     
     ctx.shadowBlur = 0; 
     ctx.shadowColor = 'transparent';
-
+h
 } 
 });
