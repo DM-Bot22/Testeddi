@@ -2,7 +2,7 @@
 
 document.addEventListener('DOMContentLoaded', (event) => {
 // --- KONFIGURATION ---
-const ZIEL_URL = "https://www.google.de"; 
+const ZIEL_URL = "https://dm-bot22.github.io/EddiGewinn/"; 
 const WIN_SCORE = 2412; // Punktzahl, ab der die Socke erscheinen KANN
 const WIN_SOCK_SRC = 'sock_image.png'; 
 const GAME_START_TIME = Date.now();
@@ -848,4 +848,5 @@ function animate() {
 
 } 
 });
+
 
