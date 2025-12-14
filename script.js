@@ -473,7 +473,7 @@ function animate() {
     
     if (score >= speedIncreasePoint) {
         gameSpeed += 0.4 * SCALING_FACTOR;
-        speedIncreasePoint += 175; 
+        speedIncreasePoint += 150; 
     }
     
     const currentSpeed = isFlying ? gameSpeed * FLIGHT_SPEED_MULTIPLIER : gameSpeed;
@@ -848,6 +848,7 @@ function animate() {
 
 } 
 });
+
 
 
 
