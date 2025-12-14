@@ -56,7 +56,7 @@ let FLIGHT_IMAGE_WIDTH_BASE = 100;
 let FLIGHT_IMAGE_HEIGHT_BASE = 80;  
 
 // LOGIK DEFINITIONEN
-let MAGNET_RANGE_BASE = 500;    
+let MAGNET_RANGE_BASE = 400;    
 const MAGNET_MAX_CHARGES = 3;  
 
 // === MAGNET ANZEIGE KONFIGURATION (JETZT ALLE 'let' FÜR RESIZE) ===
@@ -472,8 +472,8 @@ function animate() {
     // ======================================
     
     if (score >= speedIncreasePoint) {
-        gameSpeed += 0.5 * SCALING_FACTOR;
-        speedIncreasePoint += 100; 
+        gameSpeed += 0.4 * SCALING_FACTOR;
+        speedIncreasePoint += 175; 
     }
     
     const currentSpeed = isFlying ? gameSpeed * FLIGHT_SPEED_MULTIPLIER : gameSpeed;
@@ -848,5 +848,6 @@ function animate() {
 
 } 
 });
+
 
 
